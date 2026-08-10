@@ -1,0 +1,355 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		175EEF709ABE5FF118423524 /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDFAD8EA3DFE8E2875C810E /* SessionView.swift */; };
+		2437C4CB30FC0102AA2B9DC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7BF1217E2D94DD50B7E4514 /* Assets.xcassets */; };
+		29D070FAAEB7D4A44767D048 /* MotionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E61A03E4205B7B91CC84C6E /* MotionManager.swift */; };
+		4CA36A32B9AAB08D0BBEF3E3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DA42023C77E9658C3690C1 /* ContentView.swift */; };
+		4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */; };
+		81ED3F760D7DABA782F09D59 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4241EACDFD634FF8BC57736 /* HapticManager.swift */; };
+		EBDF34AA84879A2AAB429961 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6425694652FB89BD12BCA32 /* SessionManager.swift */; };
+		EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */; };
+		F3B5BAE00679899C8F582252 /* SessionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6485518729C0C067C9CA2A /* SessionSettings.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0E61A03E4205B7B91CC84C6E /* MotionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionManager.swift; sourceTree = "<group>"; };
+		2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepyJoe Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		70FE24ED27136BE3F4BD170A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		77DA42023C77E9658C3690C1 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B4241EACDFD634FF8BC57736 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
+		C6425694652FB89BD12BCA32 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		C7BF1217E2D94DD50B7E4514 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CA6485518729C0C067C9CA2A /* SessionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSettings.swift; sourceTree = "<group>"; };
+		CFDFAD8EA3DFE8E2875C810E /* SessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionView.swift; sourceTree = "<group>"; };
+		E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyJoeApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		008183808EBC4AED618F71E0 = {
+			isa = PBXGroup;
+			children = (
+				0A423C3BB27819999B12E3F6 /* SleepyJoe Watch App */,
+				732A671359CE2A15B520CB04 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0A423C3BB27819999B12E3F6 /* SleepyJoe Watch App */ = {
+			isa = PBXGroup;
+			children = (
+				C7BF1217E2D94DD50B7E4514 /* Assets.xcassets */,
+				77DA42023C77E9658C3690C1 /* ContentView.swift */,
+				70FE24ED27136BE3F4BD170A /* Info.plist */,
+				CFDFAD8EA3DFE8E2875C810E /* SessionView.swift */,
+				409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */,
+				E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */,
+				BECE8985527AFB4CB6A6F6C1 /* Managers */,
+				BBBCABDBCBCD714D24C68371 /* Models */,
+			);
+			path = "SleepyJoe Watch App";
+			sourceTree = "<group>";
+		};
+		732A671359CE2A15B520CB04 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BBBCABDBCBCD714D24C68371 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				CA6485518729C0C067C9CA2A /* SessionSettings.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		BECE8985527AFB4CB6A6F6C1 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				B4241EACDFD634FF8BC57736 /* HapticManager.swift */,
+				0E61A03E4205B7B91CC84C6E /* MotionManager.swift */,
+				C6425694652FB89BD12BCA32 /* SessionManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CF1C22ADD7CAE1E16B89CB58 /* SleepyJoe Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 529181C1312F133876525AD5 /* Build configuration list for PBXNativeTarget "SleepyJoe Watch App" */;
+			buildPhases = (
+				08854363D0A325F5CC7DF738 /* Sources */,
+				3E6FE5656A780896695147DE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "SleepyJoe Watch App";
+			packageProductDependencies = (
+			);
+			productName = "SleepyJoe Watch App";
+			productReference = 2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		002B06E12F71923543CBF510 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 99DD46FC2F2AF24BEE161DD6 /* Build configuration list for PBXProject "SleepyJoe" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 008183808EBC4AED618F71E0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 732A671359CE2A15B520CB04 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CF1C22ADD7CAE1E16B89CB58 /* SleepyJoe Watch App */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3E6FE5656A780896695147DE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2437C4CB30FC0102AA2B9DC6 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		08854363D0A325F5CC7DF738 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CA36A32B9AAB08D0BBEF3E3 /* ContentView.swift in Sources */,
+				81ED3F760D7DABA782F09D59 /* HapticManager.swift in Sources */,
+				29D070FAAEB7D4A44767D048 /* MotionManager.swift in Sources */,
+				EBDF34AA84879A2AAB429961 /* SessionManager.swift in Sources */,
+				F3B5BAE00679899C8F582252 /* SessionSettings.swift in Sources */,
+				175EEF709ABE5FF118423524 /* SessionView.swift in Sources */,
+				4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */,
+				EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2C53DBD29288D0F86B004489 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		84C083DA369BAB158C658605 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		A34CF3C0DE012269D10F766E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Focus uses motion sensors to monitor your activity during sessions.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sleepyjoe.watchapp;
+				PRODUCT_NAME = Focus;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_WATCH_OS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		C5BF27D83A3FECB86C234750 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Focus uses motion sensors to monitor your activity during sessions.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sleepyjoe.watchapp;
+				PRODUCT_NAME = Focus;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_WATCH_OS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		529181C1312F133876525AD5 /* Build configuration list for PBXNativeTarget "SleepyJoe Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A34CF3C0DE012269D10F766E /* Debug */,
+				C5BF27D83A3FECB86C234750 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		99DD46FC2F2AF24BEE161DD6 /* Build configuration list for PBXProject "SleepyJoe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C53DBD29288D0F86B004489 /* Debug */,
+				84C083DA369BAB158C658605 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 002B06E12F71923543CBF510 /* Project object */;
+}
