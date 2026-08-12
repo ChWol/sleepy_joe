@@ -61,7 +61,10 @@ struct SettingsView: View {
             }
             .onChange(of: sensitivity) { _, _ in applySettings() }
             .onChange(of: pingInterval) { _, _ in applySettings() }
-            .onChange(of: hapticStrength) { _, _ in applySettings() }
+            .onChange(of: hapticStrength) { _, newStrength in
+                applySettings()
+                sessionManager.hapticManager.playSample(for: newStrength)
+            }
             .onChange(of: enablePings) { _, _ in applySettings() }
         }
     }

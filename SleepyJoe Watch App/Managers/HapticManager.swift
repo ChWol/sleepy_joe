@@ -122,6 +122,27 @@ final class HapticManager: ObservableObject {
         }
     }
     
+    /// Play a short sample corresponding to the selected haptic strength level
+    func playSample(for strength: HapticStrength) {
+        stopCurrentSequence()
+        print("⚡ [HapticManager] Playing Sample for Strength: \(strength.label)")
+        
+        hapticTask = Task {
+            isPlaying = true
+            switch strength {
+            case .gentle:
+                WKInterfaceDevice.current().play(.click)
+            case .medium:
+                WKInterfaceDevice.current().play(.notification)
+            case .strong:
+                WKInterfaceDevice.current().play(.notification)
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                WKInterfaceDevice.current().play(.retry)
+            }
+            isPlaying = false
+        }
+    }
+    
     /// Immediately stop any playing haptic sequence
     func stopCurrentSequence() {
         hapticTask?.cancel()
