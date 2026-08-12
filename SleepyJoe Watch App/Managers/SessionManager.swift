@@ -3,7 +3,7 @@ import Combine
 import WatchKit
 
 /// Orchestrates the entire monitoring session by coordinating MotionManager,
-/// HealthKitManager, SleepDetectionEngine, and HapticManager into a fault-tolerant system.
+/// HealthKitManager, SleepDetectionEngine, AdaptiveLearningEngine, and HapticManager.
 @MainActor
 final class SessionManager: ObservableObject {
     
@@ -24,11 +24,15 @@ final class SessionManager: ObservableObject {
     @Published var nextPingIn: TimeInterval = 0
     @Published var settings: SessionSettings
     
+    /// Controls whether the 5-second discreet live feedback bar (✓/✕) is shown
+    @Published var showFeedbackPrompt: Bool = false
+    
     // MARK: - Child Managers
     
     let motionManager: MotionManager
     let healthKitManager: HealthKitManager
     let sleepDetectionEngine: SleepDetectionEngine
+    let adaptiveEngine: AdaptiveLearningEngine
     let hapticManager: HapticManager
     
     // MARK: - Private Properties
@@ -37,6 +41,7 @@ final class SessionManager: ObservableObject {
     private var elapsedTimer: Timer?
     private var monitoringTask: Task<Void, Never>?
     private var randomPingTask: Task<Void, Never>?
+    private var feedbackDismissTask: Task<Void, Never>?
     private var nextPingTime: Date?
     private var pingCountdownTimer: Timer?
     
@@ -50,7 +55,22 @@ final class SessionManager: ObservableObject {
         self.motionManager = MotionManager(settings: loadedSettings)
         self.healthKitManager = HealthKitManager()
         self.sleepDetectionEngine = SleepDetectionEngine()
+        self.adaptiveEngine = AdaptiveLearningEngine()
         self.hapticManager = HapticManager(settings: loadedSettings)
+    }
+    
+    // MARK: - Live Feedback Handler
+    
+    /// Submit live feedback (✓ True Positive vs ✕ False Alarm) and immediately update learning parameters
+    func submitFeedback(wasTruePositive: Bool) {
+        adaptiveEngine.registerFeedback(wasTruePositive: wasTruePositive)
+        
+        // Confirmation tap
+        WKInterfaceDevice.current().play(.click)
+        
+        // Hide prompt immediately
+        feedbackDismissTask?.cancel()
+        showFeedbackPrompt = false
     }
     
     // MARK: - Session Control
@@ -65,6 +85,7 @@ final class SessionManager: ObservableObject {
         consecutiveAlerts = 0
         sessionStartTime = Date()
         elapsedTime = 0
+        showFeedbackPrompt = false
         sleepDetectionEngine.reset()
         
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -74,7 +95,6 @@ final class SessionManager: ObservableObject {
             }
         }
         
-        // Start motion tracking & HealthKit monitoring
         if settings.enableMotionDetection {
             motionManager.startTracking()
             Task {
@@ -104,6 +124,8 @@ final class SessionManager: ObservableObject {
         monitoringTask = nil
         randomPingTask?.cancel()
         randomPingTask = nil
+        feedbackDismissTask?.cancel()
+        feedbackDismissTask = nil
         
         motionManager.stopTracking()
         healthKitManager.stopMonitoring()
@@ -113,6 +135,7 @@ final class SessionManager: ObservableObject {
         sessionStartTime = nil
         nextPingTime = nil
         consecutiveAlerts = 0
+        showFeedbackPrompt = false
         
         WKInterfaceDevice.current().play(.stop)
     }
@@ -136,11 +159,12 @@ final class SessionManager: ObservableObject {
                 guard self.state != .idle else { return }
                 guard self.settings.enableMotionDetection else { continue }
                 
-                // Evaluate Multi-Sensor Sleep Detection Engine with dynamic settings
+                // Evaluate Multi-Sensor Sleep Detection Engine with dynamic settings & live adaptive offsets
                 self.sleepDetectionEngine.evaluate(
                     motionManager: self.motionManager,
                     healthKitManager: self.healthKitManager,
-                    settings: self.settings
+                    settings: self.settings,
+                    adaptiveEngine: self.adaptiveEngine
                 )
                 
                 if self.sleepDetectionEngine.isSleepDetected {
@@ -166,6 +190,16 @@ final class SessionManager: ObservableObject {
         state = .alerting
         alertCount += 1
         consecutiveAlerts += 1
+        
+        // Show discreet 5-second live feedback bar (✓/✕)
+        showFeedbackPrompt = true
+        feedbackDismissTask?.cancel()
+        feedbackDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 6_000_000_000) // 6 seconds
+            if !Task.isCancelled {
+                self.showFeedbackPrompt = false
+            }
+        }
         
         switch consecutiveAlerts {
         case 1:

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Streamlined, minimal Settings view.
+/// Streamlined, minimal Settings view with live Auto-Learning analytics.
 struct SettingsView: View {
     @ObservedObject var sessionManager: SessionManager
     @Environment(\.dismiss) private var dismiss
@@ -49,6 +49,28 @@ struct SettingsView: View {
                             Text(strength.label).tag(strength)
                         }
                     }
+                }
+                
+                // Live Adaptive Calibration Section
+                Section("Lern-Kalibrierung") {
+                    HStack {
+                        Text("Genauigkeit")
+                        Spacer()
+                        Text("\(sessionManager.adaptiveEngine.precisionPercentage)%")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Anpassung")
+                        Spacer()
+                        Text(String(format: "%+.1fs", sessionManager.adaptiveEngine.personalStillnessOffset))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Button("Lernen zurücksetzen") {
+                        sessionManager.adaptiveEngine.resetCalibration()
+                    }
+                    .foregroundStyle(.red.opacity(0.8))
                 }
             }
             .navigationTitle("Optionen")

@@ -1,8 +1,7 @@
 import Foundation
 
 /// Fault-tolerant Multi-Sensor Fusion Engine for real-time sleep onset detection.
-/// Dynamically scales thresholds and required durations according to SessionSettings sensitivity.
-/// Biased heavily towards High Recall ("Better 1 alert too many than missing sleep").
+/// Integrates live adaptive learning offsets from AdaptiveLearningEngine.
 @MainActor
 final class SleepDetectionEngine: ObservableObject {
     
@@ -23,12 +22,20 @@ final class SleepDetectionEngine: ObservableObject {
     
     // MARK: - Evaluation Logic
     
-    func evaluate(motionManager: MotionManager, healthKitManager: HealthKitManager, settings: SessionSettings) {
+    func evaluate(
+        motionManager: MotionManager,
+        healthKitManager: HealthKitManager,
+        settings: SessionSettings,
+        adaptiveEngine: AdaptiveLearningEngine
+    ) {
         var score: Double = 0.0
         var reasons: [String] = []
         
+        // Calculate dynamically learned required stillness duration
+        let requiredStillnessSeconds = max(1.0, settings.stillnessRequiredSeconds + adaptiveEngine.personalStillnessOffset)
+        
         // 1. Micro-Jitter Stillness (+0.60)
-        if motionManager.isStill && motionManager.stillDuration >= settings.stillnessRequiredSeconds {
+        if motionManager.isStill && motionManager.stillDuration >= requiredStillnessSeconds {
             score += 0.60
             reasons.append("Stillness \(String(format: "%.1f", motionManager.stillDuration))s (+0.60)")
         }
@@ -56,7 +63,6 @@ final class SleepDetectionEngine: ObservableObject {
                 confidenceStartTime = Date()
             }
             
-            // Require sustained confidence for at least 1.0 second before firing
             if let start = confidenceStartTime, Date().timeIntervalSince(start) >= 1.0 {
                 isSleepDetected = true
             }
