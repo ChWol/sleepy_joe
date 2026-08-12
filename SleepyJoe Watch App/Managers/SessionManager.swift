@@ -3,8 +3,7 @@ import Combine
 import WatchKit
 
 /// Orchestrates the monitoring session by coordinating MotionManager, HealthKitManager,
-/// SleepDetectionEngine, AdaptiveLearningEngine, and HapticManager.
-/// Manages a 10-second Grace Period and 5-second Feedback Window upon returning to Active.
+/// SleepDetectionEngine, AdaptiveLearningEngine, TelemetryLogger, and HapticManager.
 @MainActor
 final class SessionManager: ObservableObject {
     
@@ -37,6 +36,7 @@ final class SessionManager: ObservableObject {
     let healthKitManager: HealthKitManager
     let sleepDetectionEngine: SleepDetectionEngine
     let adaptiveEngine: AdaptiveLearningEngine
+    let telemetryLogger: TelemetryLogger
     let hapticManager: HapticManager
     
     // MARK: - Private Properties
@@ -61,15 +61,25 @@ final class SessionManager: ObservableObject {
         self.healthKitManager = HealthKitManager()
         self.sleepDetectionEngine = SleepDetectionEngine()
         self.adaptiveEngine = AdaptiveLearningEngine()
+        self.telemetryLogger = TelemetryLogger()
         self.hapticManager = HapticManager(settings: loadedSettings)
     }
     
     // MARK: - Live Feedback Handler
     
     /// Submit live feedback (✓ True Positive vs ✕ False Alarm).
-    /// Immediately stops haptic vibration, records pattern, and closes feedback prompt.
+    /// Records clean 5-second telemetry dataset sample, updates adaptive weights, and stops haptics.
     func submitFeedback(wasTruePositive: Bool) {
         hapticManager.stopCurrentSequence()
+        
+        let labelString = wasTruePositive ? "true_positive" : "false_positive"
+        telemetryLogger.recordSample(
+            label: labelString,
+            pitchBuffer: motionManager.pitchDegreesHistory,
+            motionBuffer: motionManager.motionDeltaHistory,
+            heartRate: healthKitManager.currentHeartRate,
+            hrDrop: healthKitManager.heartRateDropPercentage
+        )
         
         adaptiveEngine.registerFeedbackPattern(
             wasTruePositive: wasTruePositive,
@@ -194,14 +204,12 @@ final class SessionManager: ObservableObject {
                     }
                 } else {
                     if self.state == .warning || self.state == .alerting {
-                        // Returning to Active / Monitoring state!
                         let wasAlerting = (self.state == .alerting)
                         self.hapticManager.stopCurrentSequence()
                         self.consecutiveAlerts = 0
                         self.state = .monitoring
                         
                         if wasAlerting {
-                            // Start 10s Grace Period and 5s Feedback Window upon returning to Active
                             self.startGracePeriod(seconds: 10)
                             self.startFeedbackPrompt(seconds: 5)
                         }
@@ -227,7 +235,6 @@ final class SessionManager: ObservableObject {
             hapticManager.playAlarm()
         }
         
-        // Auto-transition back to monitoring if motion is restored or after alarm sequence
         Task {
             try? await Task.sleep(nanoseconds: 6_000_000_000)
             if self.state == .alerting {

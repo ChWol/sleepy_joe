@@ -32,6 +32,12 @@ final class MotionManager: ObservableObject {
     /// Manual override to force stillness in simulator for testing
     @Published var forceSimulatedStillness: Bool = false
     
+    /// Recent pitch history for telemetry windowing
+    var pitchDegreesHistory: [Double] { pitchBuffer }
+    
+    /// Recent motion delta history for telemetry windowing
+    var motionDeltaHistory: [Double] { motionBuffer }
+    
     // MARK: - Private Properties
     
     private let motionManager = CMMotionManager()

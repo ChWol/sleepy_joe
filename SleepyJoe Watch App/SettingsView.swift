@@ -83,6 +83,13 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     
+                    HStack {
+                        Text("Datensätze")
+                        Spacer()
+                        Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
+                            .foregroundStyle(.secondary)
+                    }
+                    
                     Button("Lernen zurücksetzen") {
                         showResetConfirmation = true
                     }

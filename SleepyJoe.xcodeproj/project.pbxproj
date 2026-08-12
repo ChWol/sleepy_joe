@@ -15,6 +15,7 @@
 		4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */; };
 		7C1BE871FE035703C0103DE5 /* SleepDetectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB61A4BE2DE7E5EF59DC6525 /* SleepDetectionEngine.swift */; };
 		81ED3F760D7DABA782F09D59 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4241EACDFD634FF8BC57736 /* HapticManager.swift */; };
+		BA3A796DA89EB0E333B67934 /* TelemetryLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0844CDC5B25D007BA959D7 /* TelemetryLogger.swift */; };
 		DAB4DBAE38A91D28A2D9991C /* AdaptiveLearningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E67B7849D1E149DD760EDE /* AdaptiveLearningEngine.swift */; };
 		EBDF34AA84879A2AAB429961 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6425694652FB89BD12BCA32 /* SessionManager.swift */; };
 		EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */; };
@@ -23,12 +24,13 @@
 
 /* Begin PBXFileReference section */
 		0E61A03E4205B7B91CC84C6E /* MotionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionManager.swift; sourceTree = "<group>"; };
-		2439AABE8B02B9735881AEC7 /* Focus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Focus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepyJoe Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		456F4CC4FBE328EEF75FBF18 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		46E67B7849D1E149DD760EDE /* AdaptiveLearningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLearningEngine.swift; sourceTree = "<group>"; };
 		70FE24ED27136BE3F4BD170A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		77DA42023C77E9658C3690C1 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		7C0844CDC5B25D007BA959D7 /* TelemetryLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryLogger.swift; sourceTree = "<group>"; };
 		B4241EACDFD634FF8BC57736 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		BB61A4BE2DE7E5EF59DC6525 /* SleepDetectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDetectionEngine.swift; sourceTree = "<group>"; };
 		C6425694652FB89BD12BCA32 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -65,7 +67,7 @@
 		732A671359CE2A15B520CB04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2439AABE8B02B9735881AEC7 /* Focus.app */,
+				2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,6 +89,7 @@
 				0E61A03E4205B7B91CC84C6E /* MotionManager.swift */,
 				C6425694652FB89BD12BCA32 /* SessionManager.swift */,
 				BB61A4BE2DE7E5EF59DC6525 /* SleepDetectionEngine.swift */,
+				7C0844CDC5B25D007BA959D7 /* TelemetryLogger.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -109,7 +112,7 @@
 			packageProductDependencies = (
 			);
 			productName = "SleepyJoe Watch App";
-			productReference = 2439AABE8B02B9735881AEC7 /* Focus.app */;
+			productReference = 2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -120,6 +123,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 99DD46FC2F2AF24BEE161DD6 /* Build configuration list for PBXProject "SleepyJoe" */;
 			developmentRegion = en;
@@ -167,6 +172,7 @@
 				4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */,
 				7C1BE871FE035703C0103DE5 /* SleepDetectionEngine.swift in Sources */,
 				EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */,
+				BA3A796DA89EB0E333B67934 /* TelemetryLogger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,7 +304,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = KUD273S78M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus monitors heart rate to ensure session wellness and prevent drowsiness.";
@@ -324,7 +329,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = KUD273S78M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus monitors heart rate to ensure session wellness and prevent drowsiness.";
