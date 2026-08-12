@@ -36,3 +36,5 @@ targets:
         TARGETED_DEVICE_FAMILY: 4
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         INFOPLIST_KEY_NSMotionUsageDescription: "Focus uses motion sensors to monitor your activity during sessions."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Focus monitors heart rate to ensure session wellness and prevent drowsiness."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Focus records workout session state for continuous background monitoring."

@@ -4,6 +4,10 @@
 <dict>
 	<key>NSMotionUsageDescription</key>
 	<string>Focus uses motion sensors to monitor your activity during sessions.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Focus monitors heart rate to ensure session wellness and prevent drowsiness.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Focus records workout session state for continuous background monitoring.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKWatchOnly</key>

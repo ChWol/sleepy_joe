@@ -1,10 +1,8 @@
 import Foundation
 import CoreMotion
 
-/// Monitors wrist movement via the accelerometer to detect periods of stillness
-/// that may indicate the user is falling asleep.
-///
-/// Supports real Apple Watch hardware (CoreMotion) and Xcode Simulator mode.
+/// Monitors wrist movement via device motion & accelerometer to detect
+/// micro-jitter stillness and posture pitch drop (arm sagging).
 @MainActor
 final class MotionManager: ObservableObject {
     
@@ -12,6 +10,12 @@ final class MotionManager: ObservableObject {
     
     /// Current movement intensity (0.0 = perfectly still, higher = more motion)
     @Published var movementScore: Double = 0.0
+    
+    /// Current wrist pitch angle in degrees (-90° to +90°)
+    @Published var pitchDegrees: Double = 0.0
+    
+    /// Whether a posture drop (arm sagging down >15°) was detected
+    @Published var isPitchDropDetected: Bool = false
     
     /// Whether the user is currently considered "still" (below threshold)
     @Published var isStill: Bool = false
@@ -32,14 +36,13 @@ final class MotionManager: ObservableObject {
     
     private let motionManager = CMMotionManager()
     private var motionBuffer: [Double] = []
+    private var pitchBuffer: [Double] = []
     private let bufferCapacity = 50 // 5 seconds at 10Hz
     private var stillnessStartTime: Date?
+    private var baselinePitch: Double?
     private var settings: SessionSettings
     
-    /// Previous acceleration values for delta calculation
     private var prevAcceleration: (x: Double, y: Double, z: Double)?
-    
-    /// Simulator timer for generating mock motion events
     private var simulatorTimer: Timer?
     
     // MARK: - Init
@@ -50,68 +53,72 @@ final class MotionManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Update the detection settings (e.g., when user changes sensitivity)
     func updateSettings(_ newSettings: SessionSettings) {
         self.settings = newSettings
     }
     
-    /// Start accelerometer tracking
     func startTracking() {
-        // Reset state
         motionBuffer.removeAll()
+        pitchBuffer.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
+        baselinePitch = nil
         isStill = false
+        isPitchDropDetected = false
         stillDuration = 0
         movementScore = 0
+        pitchDegrees = 0
         
-        guard motionManager.isAccelerometerAvailable else {
-            print("[MotionManager] Hardware accelerometer unavailable -> Entering Simulator Mode")
+        guard motionManager.isDeviceMotionAvailable else {
+            print("[MotionManager] Hardware DeviceMotion unavailable -> Entering Simulator Mode")
             startSimulatorTracking()
             return
         }
         
         isSimulatorMode = false
+        motionManager.deviceMotionUpdateInterval = 0.1 // 10Hz
         
-        // Configure update rate: 10Hz
-        motionManager.accelerometerUpdateInterval = 0.1
-        
-        motionManager.startAccelerometerUpdates(to: OperationQueue()) { [weak self] data, error in
-            guard let self = self, let acceleration = data?.acceleration else { return }
+        motionManager.startDeviceMotionUpdates(to: OperationQueue()) { [weak self] motion, error in
+            guard let self = self, let motion = motion else { return }
+            
+            let pitch = motion.attitude.pitch * (180.0 / .pi) // Convert radians to degrees
+            let acc = motion.userAcceleration
             
             Task { @MainActor in
-                self.processAcceleration(x: acceleration.x, y: acceleration.y, z: acceleration.z)
+                self.processMotion(x: acc.x, y: acc.y, z: acc.z, pitch: pitch)
             }
         }
         
         isTracking = true
     }
     
-    /// Stop accelerometer tracking and reset state
     func stopTracking() {
         if isSimulatorMode {
             simulatorTimer?.invalidate()
             simulatorTimer = nil
         } else {
-            motionManager.stopAccelerometerUpdates()
+            motionManager.stopDeviceMotionUpdates()
         }
         
         isTracking = false
         isStill = false
+        isPitchDropDetected = false
         stillDuration = 0
         movementScore = 0
+        pitchDegrees = 0
         motionBuffer.removeAll()
+        pitchBuffer.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
+        baselinePitch = nil
     }
     
-    /// Toggle manual simulated stillness (helpful when testing in Xcode Simulator)
     func toggleSimulatedStillness() {
         forceSimulatedStillness.toggle()
         if !forceSimulatedStillness {
-            // Reset stillness timer
             stillnessStartTime = nil
             isStill = false
+            isPitchDropDetected = false
             stillDuration = 0
         }
     }
@@ -123,7 +130,6 @@ final class MotionManager: ObservableObject {
         isTracking = true
         
         simulatorTimer?.invalidate()
-        // Simulate 10Hz accelerometer loop
         simulatorTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self, self.isTracking else { return }
@@ -131,28 +137,46 @@ final class MotionManager: ObservableObject {
                 let simulatedX: Double
                 let simulatedY: Double
                 let simulatedZ: Double
+                let simulatedPitch: Double
                 
                 if self.forceSimulatedStillness {
-                    // Micro-variations well below threshold
-                    simulatedX = Double.random(in: 0.001...0.003)
-                    simulatedY = Double.random(in: 0.001...0.003)
-                    simulatedZ = Double.random(in: 0.001...0.003)
+                    simulatedX = Double.random(in: 0.001...0.002)
+                    simulatedY = Double.random(in: 0.001...0.002)
+                    simulatedZ = Double.random(in: 0.001...0.002)
+                    simulatedPitch = -35.0 // Simulated sag downward
                 } else {
-                    // Active motion simulation
                     simulatedX = Double.random(in: 0.05...0.25)
                     simulatedY = Double.random(in: 0.05...0.25)
                     simulatedZ = Double.random(in: 0.05...0.25)
+                    simulatedPitch = 0.0 // Normal upright
                 }
                 
-                self.processAcceleration(x: simulatedX, y: simulatedY, z: simulatedZ)
+                self.processMotion(x: simulatedX, y: simulatedY, z: simulatedZ, pitch: simulatedPitch)
             }
         }
     }
     
     // MARK: - Private Processing
     
-    private func processAcceleration(x: Double, y: Double, z: Double) {
-        // Calculate delta from previous reading
+    private func processMotion(x: Double, y: Double, z: Double, pitch: Double) {
+        pitchDegrees = pitch
+        
+        // Pitch Drop Analysis
+        pitchBuffer.append(pitch)
+        if pitchBuffer.count > bufferCapacity {
+            pitchBuffer.removeFirst()
+        }
+        
+        if pitchBuffer.count >= 20 {
+            let initialPitch = pitchBuffer.prefix(10).reduce(0, +) / 10.0
+            let currentPitchAverage = pitchBuffer.suffix(10).reduce(0, +) / 10.0
+            let pitchDrop = initialPitch - currentPitchAverage
+            
+            // If pitch dropped by more than 15 degrees downward
+            isPitchDropDetected = forceSimulatedStillness || (pitchDrop > 15.0)
+        }
+        
+        // Acceleration Delta
         let delta: Double
         if let prev = prevAcceleration {
             let dx = x - prev.x
@@ -164,36 +188,28 @@ final class MotionManager: ObservableObject {
         }
         prevAcceleration = (x, y, z)
         
-        // Add to rolling buffer
         motionBuffer.append(delta)
         if motionBuffer.count > bufferCapacity {
             motionBuffer.removeFirst()
         }
         
-        // Need at least 1 second of data (10 samples) before judging
         guard motionBuffer.count >= 10 else { return }
         
-        // Calculate rolling average of movement deltas
         let averageDelta = motionBuffer.reduce(0, +) / Double(motionBuffer.count)
         movementScore = averageDelta
         
-        // Determine stillness
         let wasStill = isStill
         let currentlyStill = forceSimulatedStillness || (averageDelta < settings.stillnessThreshold)
         
         if currentlyStill {
             if !wasStill {
-                // Just became still — start the timer
                 stillnessStartTime = Date()
             }
-            
             if let startTime = stillnessStartTime {
                 stillDuration = Date().timeIntervalSince(startTime)
             }
-            
             isStill = true
         } else {
-            // Movement detected — reset everything
             isStill = false
             stillDuration = 0
             stillnessStartTime = nil
