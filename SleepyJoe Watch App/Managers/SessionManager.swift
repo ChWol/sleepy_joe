@@ -2,9 +2,9 @@ import Foundation
 import Combine
 import WatchKit
 
-/// Orchestrates the entire monitoring session by coordinating MotionManager,
-/// HealthKitManager, SleepDetectionEngine, AdaptiveLearningEngine, and HapticManager.
-/// Manages a 60-second Refractory Grace Period after alerts/feedback.
+/// Orchestrates the monitoring session by coordinating MotionManager, HealthKitManager,
+/// SleepDetectionEngine, AdaptiveLearningEngine, and HapticManager.
+/// Manages a 10-second Grace Period and 5-second Feedback Window upon returning to Active.
 @MainActor
 final class SessionManager: ObservableObject {
     
@@ -12,9 +12,9 @@ final class SessionManager: ObservableObject {
     
     enum SessionState: Equatable {
         case idle       // No active session
-        case monitoring // Actively watching for sleep
+        case monitoring // Actively watching for sleep (Green / Active)
         case warning    // Stillness/confidence building
-        case alerting   // Haptic alert in progress
+        case alerting   // Haptic alert in progress (Vibrating)
     }
     
     // MARK: - Published State
@@ -25,10 +25,10 @@ final class SessionManager: ObservableObject {
     @Published var nextPingIn: TimeInterval = 0
     @Published var settings: SessionSettings
     
-    /// Controls whether the 25-second discreet live feedback bar (✓/✕) is shown
+    /// Controls whether the 5-second discreet live feedback bar (✓/✕) is shown after returning to Active
     @Published var showFeedbackPrompt: Bool = false
     
-    /// Whether the 60-second Refractory Grace Period is active after an alert
+    /// Whether the 10-second Refractory Grace Period is active after returning to Active
     @Published var isGracePeriodActive: Bool = false
     
     // MARK: - Child Managers
@@ -67,9 +67,8 @@ final class SessionManager: ObservableObject {
     // MARK: - Live Feedback Handler
     
     /// Submit live feedback (✓ True Positive vs ✕ False Alarm).
-    /// Immediately stops haptic vibration, records pattern, and initiates a 60s Grace Period.
+    /// Immediately stops haptic vibration, records pattern, and closes feedback prompt.
     func submitFeedback(wasTruePositive: Bool) {
-        // Stop vibration immediately!
         hapticManager.stopCurrentSequence()
         
         adaptiveEngine.registerFeedbackPattern(
@@ -79,18 +78,10 @@ final class SessionManager: ObservableObject {
             wasStillnessActive: sleepDetectionEngine.wasStillnessActive
         )
         
-        // Confirmation tap
         WKInterfaceDevice.current().play(.click)
         
-        // Hide prompt
         feedbackDismissTask?.cancel()
         showFeedbackPrompt = false
-        
-        // Reset alert state & start 60s Grace Period
-        state = .monitoring
-        consecutiveAlerts = 0
-        sleepDetectionEngine.reset()
-        startGracePeriod(seconds: 60)
     }
     
     // MARK: - Session Control
@@ -183,13 +174,11 @@ final class SessionManager: ObservableObject {
                 guard self.state != .idle else { return }
                 guard self.settings.enableMotionDetection else { continue }
                 
-                // Do not trigger new alerts during Grace Period
                 if self.isGracePeriodActive {
                     self.sleepDetectionEngine.reset()
                     continue
                 }
                 
-                // Evaluate Multi-Sensor Sleep Detection Engine with dynamic settings & live adaptive offsets
                 self.sleepDetectionEngine.evaluate(
                     motionManager: self.motionManager,
                     healthKitManager: self.healthKitManager,
@@ -205,9 +194,17 @@ final class SessionManager: ObservableObject {
                     }
                 } else {
                     if self.state == .warning || self.state == .alerting {
+                        // Returning to Active / Monitoring state!
+                        let wasAlerting = (self.state == .alerting)
                         self.hapticManager.stopCurrentSequence()
                         self.consecutiveAlerts = 0
                         self.state = .monitoring
+                        
+                        if wasAlerting {
+                            // Start 10s Grace Period and 5s Feedback Window upon returning to Active
+                            self.startGracePeriod(seconds: 10)
+                            self.startFeedbackPrompt(seconds: 5)
+                        }
                     }
                 }
             }
@@ -221,16 +218,6 @@ final class SessionManager: ObservableObject {
         alertCount += 1
         consecutiveAlerts += 1
         
-        // Show discreet 25-second live feedback prompt so user has plenty of time to raise arm & label
-        showFeedbackPrompt = true
-        feedbackDismissTask?.cancel()
-        feedbackDismissTask = Task {
-            try? await Task.sleep(nanoseconds: 25_000_000_000) // 25 seconds
-            if !Task.isCancelled {
-                self.showFeedbackPrompt = false
-            }
-        }
-        
         switch consecutiveAlerts {
         case 1:
             hapticManager.playWake()
@@ -240,12 +227,25 @@ final class SessionManager: ObservableObject {
             hapticManager.playAlarm()
         }
         
-        // Auto-reset alert state after 5 seconds & initiate 60s Grace Period
+        // Auto-transition back to monitoring if motion is restored or after alarm sequence
         Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
             if self.state == .alerting {
+                self.hapticManager.stopCurrentSequence()
                 self.state = .monitoring
-                self.startGracePeriod(seconds: 60)
+                self.startGracePeriod(seconds: 10)
+                self.startFeedbackPrompt(seconds: 5)
+            }
+        }
+    }
+    
+    private func startFeedbackPrompt(seconds: Double) {
+        showFeedbackPrompt = true
+        feedbackDismissTask?.cancel()
+        feedbackDismissTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            if !Task.isCancelled {
+                self.showFeedbackPrompt = false
             }
         }
     }

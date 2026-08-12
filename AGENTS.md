@@ -36,14 +36,14 @@ In der echten Nutzung gibt es ein starkes Klassen-Ungleichgewicht:
 
 ## 3. Implementierte UX & System-Regeln
 
-1. **Refraktäre Grace Period (60 Sekunden)**:
-   - Nach jedem Alarm oder Feedback-Tap geht das System für 60s in eine Schutzphase. Da der Nutzer gerade aktiv reagiert hat, sind neue Alarme für 60s gesperrt.
-2. **Verlängertes Feedback-Fenster (25 Sekunden)**:
-   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) bleiben 25s lang dezent verfügbar, damit der Nutzer genügend Zeit hat, den Arm zu heben und zu labeln – selbst wenn die Vibration längst aufgehört hat.
+1. **Refraktäre Grace Period (10 Sekunden)**:
+   - Sobald die App wieder auf den Status **Aktiv (Grün)** zurückkehrt (z. B. nach Armbewegung oder Alarm-Ende), geht das System für 10 Sekunden in eine kurze Schutzphase. So wird verhindert, dass man direkt beim Wiederaufrichten erneut erschreckt wird.
+2. **5-Sekunden Feedback-Fenster nach Aktivierung**:
+   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) erscheinen erst in dem Moment, in dem die App wieder in den Status **Aktiv (Grün)** wechselt, und bleiben **exakt 5 Sekunden** verfügbar. So hat der Nutzer genügend Zeit zum Labeln, während der Alarm in Ruhe ausläuft oder der Arm angehoben wird.
 3. **Sofortiger Vibrations-Stopp bei Label-Tap**:
    - Sobald `✓` oder `✕` angetippt werden, bricht `hapticManager.stopCurrentSequence()` die Vibration Augenblicklich ab.
 4. **Diskrete Opt-In Logik**:
-   - Wird das Feedback ignoriert, verfällt es spurlos ohne Datenänderung.
+   - Wird das Feedback ignoriert, verfällt es nach 5s spurlos ohne Datenänderung.
 
 ---
 
