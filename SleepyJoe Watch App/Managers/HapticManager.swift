@@ -122,7 +122,8 @@ final class HapticManager: ObservableObject {
         }
     }
     
-    /// Play a short sample corresponding to the selected haptic strength level
+    /// Play a short sample corresponding to the selected haptic strength level.
+    /// Each level uses a distinctly different physical Taptic Engine pattern.
     func playSample(for strength: HapticStrength) {
         stopCurrentSequence()
         print("⚡ [HapticManager] Playing Sample for Strength: \(strength.label)")
@@ -131,13 +132,20 @@ final class HapticManager: ObservableObject {
             isPlaying = true
             switch strength {
             case .gentle:
-                WKInterfaceDevice.current().play(.click)
+                // Sanft: Ein einziger, spürbarer sanfter Tap
+                WKInterfaceDevice.current().play(.directionUp)
+                
             case .medium:
+                // Mittel: Ein deutlicher Doppel-Pulse (System Notification)
                 WKInterfaceDevice.current().play(.notification)
+                
             case .strong:
+                // Stark: Eine dreifache, ausgeprägte Vibrations-Kaskade
                 WKInterfaceDevice.current().play(.notification)
                 try? await Task.sleep(nanoseconds: 120_000_000)
                 WKInterfaceDevice.current().play(.retry)
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                WKInterfaceDevice.current().play(.directionDown)
             }
             isPlaying = false
         }
