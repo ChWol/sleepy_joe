@@ -61,9 +61,14 @@ final class SessionManager: ObservableObject {
     
     // MARK: - Live Feedback Handler
     
-    /// Submit live feedback (✓ True Positive vs ✕ False Alarm) and immediately update learning parameters
+    /// Submit live feedback (✓ True Positive vs ✕ False Alarm) and update multi-feature sensor weights
     func submitFeedback(wasTruePositive: Bool) {
-        adaptiveEngine.registerFeedback(wasTruePositive: wasTruePositive)
+        adaptiveEngine.registerFeedbackPattern(
+            wasTruePositive: wasTruePositive,
+            wasHRActive: sleepDetectionEngine.wasHRActive,
+            wasPitchActive: sleepDetectionEngine.wasPitchActive,
+            wasStillnessActive: sleepDetectionEngine.wasStillnessActive
+        )
         
         // Confirmation tap
         WKInterfaceDevice.current().play(.click)

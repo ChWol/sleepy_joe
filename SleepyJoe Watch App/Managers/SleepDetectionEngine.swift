@@ -1,7 +1,7 @@
 import Foundation
 
 /// Fault-tolerant Multi-Sensor Fusion Engine for real-time sleep onset detection.
-/// Integrates live adaptive learning offsets from AdaptiveLearningEngine.
+/// Dynamically evaluates per-sensor weights (w_stillness, w_pitch, w_hr) learned by AdaptiveLearningEngine.
 @MainActor
 final class SleepDetectionEngine: ObservableObject {
     
@@ -13,8 +13,13 @@ final class SleepDetectionEngine: ObservableObject {
     /// Whether sleep onset is detected
     @Published var isSleepDetected: Bool = false
     
-    /// Human-readable detection rationale (for debugging/logs)
+    /// Human-readable detection rationale
     @Published var detectionReason: String = ""
+    
+    /// Active feature contributions during last evaluation
+    @Published var wasStillnessActive: Bool = false
+    @Published var wasPitchActive: Bool = false
+    @Published var wasHRActive: Bool = false
     
     // MARK: - Private Properties
     
@@ -31,32 +36,44 @@ final class SleepDetectionEngine: ObservableObject {
         var score: Double = 0.0
         var reasons: [String] = []
         
-        // Calculate dynamically learned required stillness duration
-        let requiredStillnessSeconds = max(1.0, settings.stillnessRequiredSeconds + adaptiveEngine.personalStillnessOffset)
+        let stillnessOffset = settings.useAutoSensitivity ? adaptiveEngine.personalStillnessOffset : 0.0
+        let requiredStillnessSeconds = max(1.0, settings.stillnessRequiredSeconds + stillnessOffset)
         
-        // 1. Micro-Jitter Stillness (+0.60)
-        if motionManager.isStill && motionManager.stillDuration >= requiredStillnessSeconds {
-            score += 0.60
-            reasons.append("Stillness \(String(format: "%.1f", motionManager.stillDuration))s (+0.60)")
+        let confOffset = settings.useAutoSensitivity ? adaptiveEngine.confidenceThresholdOffset : 0.0
+        let activeThreshold = max(0.20, settings.confidenceThreshold + confOffset)
+        
+        let wStillness = settings.useAutoSensitivity ? adaptiveEngine.weightStillness : 0.60
+        let wPitch = settings.useAutoSensitivity ? adaptiveEngine.weightPitch : 0.40
+        let wHR = settings.useAutoSensitivity ? adaptiveEngine.weightHR : 0.35
+        
+        // 1. Micro-Jitter Stillness
+        let stillnessCondition = motionManager.isStill && motionManager.stillDuration >= requiredStillnessSeconds
+        wasStillnessActive = stillnessCondition
+        if stillnessCondition {
+            score += wStillness
+            reasons.append("Stillness \(String(format: "%.1f", motionManager.stillDuration))s (+\(String(format: "%.2f", wStillness)))")
         }
         
-        // 2. Posture Pitch Drop / Downward Tilt (+0.40)
-        if motionManager.isPitchDropDetected {
-            score += 0.40
-            reasons.append("Pitch Tilt (+0.40)")
+        // 2. Posture Pitch Drop / Tilt
+        let pitchCondition = motionManager.isPitchDropDetected
+        wasPitchActive = pitchCondition
+        if pitchCondition {
+            score += wPitch
+            reasons.append("Pitch Tilt (+\(String(format: "%.2f", wPitch)))")
         }
         
-        // 3. Heart Rate Drop (+0.35)
-        if healthKitManager.heartRateDropPercentage >= 0.04 {
-            score += 0.35
-            reasons.append("HR Drop \(Int(healthKitManager.heartRateDropPercentage * 100))% (+0.35)")
+        // 3. Heart Rate Drop
+        let hrCondition = healthKitManager.heartRateDropPercentage >= 0.04
+        wasHRActive = hrCondition
+        if hrCondition {
+            score += wHR
+            reasons.append("HR Drop \(Int(healthKitManager.heartRateDropPercentage * 100))% (+\(String(format: "%.2f", wHR)))")
         }
         
         totalConfidence = min(1.0, score)
         detectionReason = reasons.joined(separator: " | ")
         
-        // High Sensitivity Threshold Evaluation
-        let thresholdMet = totalConfidence >= settings.confidenceThreshold
+        let thresholdMet = totalConfidence >= activeThreshold
         
         if thresholdMet {
             if confidenceStartTime == nil {
@@ -76,6 +93,9 @@ final class SleepDetectionEngine: ObservableObject {
         totalConfidence = 0.0
         isSleepDetected = false
         detectionReason = ""
+        wasStillnessActive = false
+        wasPitchActive = false
+        wasHRActive = false
         confidenceStartTime = nil
     }
 }

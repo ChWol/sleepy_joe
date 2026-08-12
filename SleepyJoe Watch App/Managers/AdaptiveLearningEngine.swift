@@ -1,18 +1,27 @@
 import Foundation
 
-/// On-Device Adaptive Learning Engine.
-/// Learns live from explicit user feedback (✓ True Positive vs ✕ False Alarm)
-/// to automatically calibrate personal stillness thresholds and posture sensitivity.
+/// Advanced On-Device Multi-Feature Pattern Learning Engine.
+/// Learns individual sensor weight importance (w_motion, w_pitch, w_hr)
+/// and feature-specific thresholds rather than just global scalar offsets.
 @MainActor
 final class AdaptiveLearningEngine: ObservableObject {
     
-    // MARK: - Published State
+    // MARK: - Published State (Individual Sensor Weights & Thresholds)
     
-    /// Learned adjustment to stillness duration (seconds, e.g. +0.4s to prevent false alarms)
+    /// Learned weight for Motion Micro-Stillness (default 0.60)
+    @Published var weightStillness: Double = 0.60
+    
+    /// Learned weight for Posture Pitch Drop (default 0.40)
+    @Published var weightPitch: Double = 0.40
+    
+    /// Learned weight for Heart Rate Drop (default 0.35)
+    @Published var weightHR: Double = 0.35
+    
+    /// Learned adjustment to required stillness duration (seconds)
     @Published var personalStillnessOffset: Double = 0.0
     
-    /// Learned adjustment to pitch drop threshold (degrees)
-    @Published var personalPitchOffset: Double = 0.0
+    /// Learned adjustment to overall confidence trigger threshold
+    @Published var confidenceThresholdOffset: Double = 0.0
     
     /// Count of confirmed sleep detections (True Positives)
     @Published var truePositivesCount: Int = 0
@@ -31,8 +40,11 @@ final class AdaptiveLearningEngine: ObservableObject {
     
     // MARK: - Persistence Keys
     
+    private let wStillnessKey = "learned_w_stillness"
+    private let wPitchKey = "learned_w_pitch"
+    private let wHRKey = "learned_w_hr"
     private let stillnessOffsetKey = "learned_stillness_offset"
-    private let pitchOffsetKey = "learned_pitch_offset"
+    private let confOffsetKey = "learned_conf_offset"
     private let tpCountKey = "learned_tp_count"
     private let fpCountKey = "learned_fp_count"
     
@@ -42,20 +54,48 @@ final class AdaptiveLearningEngine: ObservableObject {
         loadCalibration()
     }
     
-    // MARK: - Live Feedback Processing
+    // MARK: - Multi-Feature Pattern Learning Algorithm
     
-    /// Register live user feedback and immediately calibrate parameters.
-    func registerFeedback(wasTruePositive: Bool) {
+    /// Learns feature importance patterns from live feedback.
+    /// If HR is uninformative, its weight is lowered.
+    /// If motion stillness is critical, its weight is boosted.
+    func registerFeedbackPattern(
+        wasTruePositive: Bool,
+        wasHRActive: Bool,
+        wasPitchActive: Bool,
+        wasStillnessActive: Bool
+    ) {
         if wasTruePositive {
             truePositivesCount += 1
-            // True Positive: Detection was correct! Slightly tighten delay for even faster response (-0.1s, min -0.5s)
+            
+            // True Positive: Boost weights of sensors that correctly flagged sleep onset
+            if wasStillnessActive { weightStillness = min(0.80, weightStillness + 0.03) }
+            if wasPitchActive { weightPitch = min(0.60, weightPitch + 0.03) }
+            if wasHRActive { weightHR = min(0.50, weightHR + 0.03) }
+            
             personalStillnessOffset = max(-0.5, personalStillnessOffset - 0.1)
-            print("🎯 [AdaptiveLearning] Confirmed TRUE POSITIVE. Total TP: \(truePositivesCount), Offset: \(personalStillnessOffset)s")
+            confidenceThresholdOffset = max(-0.15, confidenceThresholdOffset - 0.02)
+            
+            print("🎯 [PatternLearning] TRUE POSITIVE: Weights (Still: \(weightStillness), Pitch: \(weightPitch), HR: \(weightHR))")
         } else {
             falsePositivesCount += 1
-            // False Alarm: Quiet sitting triggered alert. Increase required duration (+0.4s, max +3.0s) so it won't repeat
-            personalStillnessOffset = min(3.0, personalStillnessOffset + 0.4)
-            print("🛡️ [AdaptiveLearning] Reported FALSE POSITIVE. Total FP: \(falsePositivesCount), Offset: \(personalStillnessOffset)s")
+            
+            // False Alarm: Penalize sensors that caused the false trigger
+            if wasHRActive {
+                // User's HR is noisy/uninformative -> lower HR weight
+                weightHR = max(0.10, weightHR - 0.08)
+            }
+            if wasStillnessActive {
+                // Increase stillness duration requirement
+                personalStillnessOffset = min(3.0, personalStillnessOffset + 0.4)
+            }
+            if wasPitchActive {
+                weightPitch = max(0.20, weightPitch - 0.05)
+            }
+            
+            confidenceThresholdOffset = min(0.20, confidenceThresholdOffset + 0.04)
+            
+            print("🛡️ [PatternLearning] FALSE POSITIVE: Adjusted Weights (Still: \(weightStillness), Pitch: \(weightPitch), HR: \(weightHR))")
         }
         
         saveCalibration()
@@ -63,8 +103,11 @@ final class AdaptiveLearningEngine: ObservableObject {
     
     /// Reset learned calibration back to factory defaults
     func resetCalibration() {
+        weightStillness = 0.60
+        weightPitch = 0.40
+        weightHR = 0.35
         personalStillnessOffset = 0.0
-        personalPitchOffset = 0.0
+        confidenceThresholdOffset = 0.0
         truePositivesCount = 0
         falsePositivesCount = 0
         saveCalibration()
@@ -74,16 +117,24 @@ final class AdaptiveLearningEngine: ObservableObject {
     
     private func saveCalibration() {
         let defaults = UserDefaults.standard
+        defaults.set(weightStillness, forKey: wStillnessKey)
+        defaults.set(weightPitch, forKey: wPitchKey)
+        defaults.set(weightHR, forKey: wHRKey)
         defaults.set(personalStillnessOffset, forKey: stillnessOffsetKey)
-        defaults.set(personalPitchOffset, forKey: pitchOffsetKey)
+        defaults.set(confidenceThresholdOffset, forKey: confOffsetKey)
         defaults.set(truePositivesCount, forKey: tpCountKey)
         defaults.set(falsePositivesCount, forKey: fpCountKey)
     }
     
     private func loadCalibration() {
         let defaults = UserDefaults.standard
+        if defaults.object(forKey: wStillnessKey) != nil {
+            weightStillness = defaults.double(forKey: wStillnessKey)
+            weightPitch = defaults.double(forKey: wPitchKey)
+            weightHR = defaults.double(forKey: wHRKey)
+        }
         personalStillnessOffset = defaults.double(forKey: stillnessOffsetKey)
-        personalPitchOffset = defaults.double(forKey: pitchOffsetKey)
+        confidenceThresholdOffset = defaults.double(forKey: confOffsetKey)
         truePositivesCount = defaults.integer(forKey: tpCountKey)
         falsePositivesCount = defaults.integer(forKey: fpCountKey)
     }

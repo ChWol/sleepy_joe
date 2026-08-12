@@ -1,18 +1,22 @@
 import SwiftUI
 
-/// Streamlined, minimal Settings view with live Auto-Learning analytics.
+/// Streamlined, minimal Settings view with Auto vs Manual sensitivity toggle
+/// and double-confirmation dialog for resetting calibration.
 struct SettingsView: View {
     @ObservedObject var sessionManager: SessionManager
     @Environment(\.dismiss) private var dismiss
     
+    @State private var useAutoSensitivity: Bool
     @State private var sensitivity: Double
     @State private var pingInterval: Int
     @State private var hapticStrength: HapticStrength
     @State private var enablePings: Bool
+    @State private var showResetConfirmation = false
     
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
         let s = sessionManager.settings
+        _useAutoSensitivity = State(initialValue: s.useAutoSensitivity)
         _sensitivity = State(initialValue: Double(s.sensitivity))
         _pingInterval = State(initialValue: s.pingIntervalMinutes)
         _hapticStrength = State(initialValue: s.hapticStrength)
@@ -22,9 +26,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Sensitivity
+                // Sensitivity Section: Auto (Gelernt) vs Manuell
                 Section("Empfindlichkeit") {
-                    Slider(value: $sensitivity, in: 1...5, step: 1)
+                    Toggle("Auto (Gelernt)", isOn: $useAutoSensitivity)
+                    
+                    if !useAutoSensitivity {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Stufe")
+                                Spacer()
+                                Text("\(Int(sensitivity))")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Slider(value: $sensitivity, in: 1...5, step: 1)
+                        }
+                    }
                 }
                 
                 // Random Pings
@@ -51,8 +67,8 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Live Adaptive Calibration Section
-                Section("Lern-Kalibrierung") {
+                // Live Adaptive Calibration Analytics & Reset
+                Section("Gelerntes Profil") {
                     HStack {
                         Text("Genauigkeit")
                         Spacer()
@@ -68,7 +84,7 @@ struct SettingsView: View {
                     }
                     
                     Button("Lernen zurücksetzen") {
-                        sessionManager.adaptiveEngine.resetCalibration()
+                        showResetConfirmation = true
                     }
                     .foregroundStyle(.red.opacity(0.8))
                 }
@@ -82,6 +98,19 @@ struct SettingsView: View {
                     }
                 }
             }
+            .confirmationDialog(
+                "Lernen zurücksetzen?",
+                isPresented: $showResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Wirklich zurücksetzen", role: .destructive) {
+                    sessionManager.adaptiveEngine.resetCalibration()
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Alle gelernten Anpassungen und Treffer-Daten werden unwiderruflich gelöscht.")
+            }
+            .onChange(of: useAutoSensitivity) { _, _ in applySettings() }
             .onChange(of: sensitivity) { _, _ in applySettings() }
             .onChange(of: pingInterval) { _, _ in applySettings() }
             .onChange(of: hapticStrength) { _, newStrength in
@@ -94,6 +123,7 @@ struct SettingsView: View {
     
     private func applySettings() {
         var newSettings = sessionManager.settings
+        newSettings.useAutoSensitivity = useAutoSensitivity
         newSettings.sensitivity = Int(sensitivity)
         newSettings.pingIntervalMinutes = pingInterval
         newSettings.hapticStrength = hapticStrength

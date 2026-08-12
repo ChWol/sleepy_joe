@@ -28,7 +28,10 @@ enum HapticStrength: Int, Codable, CaseIterable, Identifiable {
 
 // MARK: - Session Settings
 struct SessionSettings: Codable, Equatable {
-    /// Sensitivity level (1 = least sensitive / conservative, 5 = most sensitive / aggressive)
+    /// Whether automatic learned sensitivity calibration is enabled
+    var useAutoSensitivity: Bool = true
+    
+    /// Manual sensitivity level (1 = least sensitive, 5 = most sensitive) when auto sensitivity is disabled
     var sensitivity: Int = 3
     
     /// Base interval (in minutes) between random preventive pings (1, 5, 10, 15, 20)
@@ -46,14 +49,13 @@ struct SessionSettings: Codable, Equatable {
     // MARK: - Dynamic Sensitivity Metrics
     
     /// Confidence threshold required to trigger sleep alert.
-    /// At Level 5 (Highest Sensitivity), threshold is aggressive (0.35), so even subtle stillness triggers quickly.
     var confidenceThreshold: Double {
         switch sensitivity {
-        case 5: return 0.35  // Aggressive: trigger extremely fast
+        case 5: return 0.35
         case 4: return 0.45
-        case 3: return 0.55  // Balanced default
+        case 3: return 0.55
         case 2: return 0.65
-        case 1: return 0.75  // Conservative
+        case 1: return 0.75
         default: return 0.55
         }
     }
@@ -61,7 +63,7 @@ struct SessionSettings: Codable, Equatable {
     /// Minimum stillness duration (seconds) required before confidence builds up.
     var stillnessRequiredSeconds: Double {
         switch sensitivity {
-        case 5: return 1.5   // Triggers after just 1.5s of micro-stillness
+        case 5: return 1.5
         case 4: return 2.5
         case 3: return 3.5
         case 2: return 5.0
@@ -73,7 +75,7 @@ struct SessionSettings: Codable, Equatable {
     /// Micro-jitter stillness threshold derived from sensitivity.
     var stillnessThreshold: Double {
         switch sensitivity {
-        case 5: return 0.10  // Broad threshold: readily flags micro-stillness
+        case 5: return 0.10
         case 4: return 0.08
         case 3: return 0.05
         case 2: return 0.03
