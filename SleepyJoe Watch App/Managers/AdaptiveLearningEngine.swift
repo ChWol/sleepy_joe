@@ -2,11 +2,11 @@ import Foundation
 
 /// Advanced On-Device Multi-Feature Pattern Learning Engine.
 /// Learns individual sensor weight importance (w_motion, w_pitch, w_hr)
-/// and feature-specific thresholds rather than just global scalar offsets.
+/// and granular micro-jitter variance thresholds (epsilon_jitter) rather than just inflating time delays.
 @MainActor
 final class AdaptiveLearningEngine: ObservableObject {
     
-    // MARK: - Published State (Individual Sensor Weights & Thresholds)
+    // MARK: - Published State (Granular Feature Weights & Thresholds)
     
     /// Learned weight for Motion Micro-Stillness (default 0.60)
     @Published var weightStillness: Double = 0.60
@@ -17,8 +17,11 @@ final class AdaptiveLearningEngine: ObservableObject {
     /// Learned weight for Heart Rate Drop (default 0.35)
     @Published var weightHR: Double = 0.35
     
-    /// Learned adjustment to required stillness duration (seconds)
+    /// Learned adjustment to stillness duration (bounded between -0.5s and +1.0s to preserve fast response)
     @Published var personalStillnessOffset: Double = 0.0
+    
+    /// Learned granular micro-jitter variance floor adjustment (epsilon_jitter)
+    @Published var microJitterThresholdOffset: Double = 0.0
     
     /// Learned adjustment to overall confidence trigger threshold
     @Published var confidenceThresholdOffset: Double = 0.0
@@ -44,6 +47,7 @@ final class AdaptiveLearningEngine: ObservableObject {
     private let wPitchKey = "learned_w_pitch"
     private let wHRKey = "learned_w_hr"
     private let stillnessOffsetKey = "learned_stillness_offset"
+    private let jitterOffsetKey = "learned_jitter_offset"
     private let confOffsetKey = "learned_conf_offset"
     private let tpCountKey = "learned_tp_count"
     private let fpCountKey = "learned_fp_count"
@@ -56,9 +60,8 @@ final class AdaptiveLearningEngine: ObservableObject {
     
     // MARK: - Multi-Feature Pattern Learning Algorithm
     
-    /// Learns feature importance patterns from live feedback.
-    /// If HR is uninformative, its weight is lowered.
-    /// If motion stillness is critical, its weight is boosted.
+    /// Learns granular feature thresholds and sensor weight importance from live feedback.
+    /// Handles class imbalance (many false alarms vs few true sleep events) via asymmetric cost updates.
     func registerFeedbackPattern(
         wasTruePositive: Bool,
         wasHRActive: Bool,
@@ -68,34 +71,38 @@ final class AdaptiveLearningEngine: ObservableObject {
         if wasTruePositive {
             truePositivesCount += 1
             
-            // True Positive: Boost weights of sensors that correctly flagged sleep onset
-            if wasStillnessActive { weightStillness = min(0.80, weightStillness + 0.03) }
-            if wasPitchActive { weightPitch = min(0.60, weightPitch + 0.03) }
-            if wasHRActive { weightHR = min(0.50, weightHR + 0.03) }
+            // True Positive: Confirmed sleep! Boost weights of sensors that flagged sleep onset
+            if wasStillnessActive { weightStillness = min(0.85, weightStillness + 0.04) }
+            if wasPitchActive { weightPitch = min(0.65, weightPitch + 0.04) }
+            if wasHRActive { weightHR = min(0.55, weightHR + 0.04) }
             
+            // Sharpen detection response (-0.1s duration, lower confidence threshold)
             personalStillnessOffset = max(-0.5, personalStillnessOffset - 0.1)
-            confidenceThresholdOffset = max(-0.15, confidenceThresholdOffset - 0.02)
+            confidenceThresholdOffset = max(-0.15, confidenceThresholdOffset - 0.03)
             
             print("🎯 [PatternLearning] TRUE POSITIVE: Weights (Still: \(weightStillness), Pitch: \(weightPitch), HR: \(weightHR))")
         } else {
             falsePositivesCount += 1
             
-            // False Alarm: Penalize sensors that caused the false trigger
+            // False Alarm: Quiet sitting. Adjust granular jitter threshold rather than endlessly adding seconds!
+            if wasStillnessActive {
+                // Tighten granular micro-jitter variance threshold (epsilon_jitter) so quiet tremors are distinguished from true atonia
+                microJitterThresholdOffset = max(-0.025, microJitterThresholdOffset - 0.005)
+                // Cap duration offset to max +1.0s to preserve fast response speed
+                personalStillnessOffset = min(1.0, personalStillnessOffset + 0.15)
+            }
+            
             if wasHRActive {
-                // User's HR is noisy/uninformative -> lower HR weight
+                // Heart rate was noisy -> penalize HR weight so quiet sitting HR fluctuations don't trigger false alarms
                 weightHR = max(0.10, weightHR - 0.08)
             }
-            if wasStillnessActive {
-                // Increase stillness duration requirement
-                personalStillnessOffset = min(3.0, personalStillnessOffset + 0.4)
-            }
             if wasPitchActive {
-                weightPitch = max(0.20, weightPitch - 0.05)
+                weightPitch = max(0.20, weightPitch - 0.04)
             }
             
-            confidenceThresholdOffset = min(0.20, confidenceThresholdOffset + 0.04)
+            confidenceThresholdOffset = min(0.15, confidenceThresholdOffset + 0.03)
             
-            print("🛡️ [PatternLearning] FALSE POSITIVE: Adjusted Weights (Still: \(weightStillness), Pitch: \(weightPitch), HR: \(weightHR))")
+            print("🛡️ [PatternLearning] FALSE POSITIVE: Adjusted Weights (Still: \(weightStillness), JitterOffset: \(microJitterThresholdOffset), HR: \(weightHR))")
         }
         
         saveCalibration()
@@ -107,6 +114,7 @@ final class AdaptiveLearningEngine: ObservableObject {
         weightPitch = 0.40
         weightHR = 0.35
         personalStillnessOffset = 0.0
+        microJitterThresholdOffset = 0.0
         confidenceThresholdOffset = 0.0
         truePositivesCount = 0
         falsePositivesCount = 0
@@ -121,6 +129,7 @@ final class AdaptiveLearningEngine: ObservableObject {
         defaults.set(weightPitch, forKey: wPitchKey)
         defaults.set(weightHR, forKey: wHRKey)
         defaults.set(personalStillnessOffset, forKey: stillnessOffsetKey)
+        defaults.set(microJitterThresholdOffset, forKey: jitterOffsetKey)
         defaults.set(confidenceThresholdOffset, forKey: confOffsetKey)
         defaults.set(truePositivesCount, forKey: tpCountKey)
         defaults.set(falsePositivesCount, forKey: fpCountKey)
@@ -134,6 +143,7 @@ final class AdaptiveLearningEngine: ObservableObject {
             weightHR = defaults.double(forKey: wHRKey)
         }
         personalStillnessOffset = defaults.double(forKey: stillnessOffsetKey)
+        microJitterThresholdOffset = defaults.double(forKey: jitterOffsetKey)
         confidenceThresholdOffset = defaults.double(forKey: confOffsetKey)
         truePositivesCount = defaults.integer(forKey: tpCountKey)
         falsePositivesCount = defaults.integer(forKey: fpCountKey)

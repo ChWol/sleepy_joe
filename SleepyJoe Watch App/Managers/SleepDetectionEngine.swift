@@ -1,7 +1,7 @@
 import Foundation
 
 /// Fault-tolerant Multi-Sensor Fusion Engine for real-time sleep onset detection.
-/// Dynamically evaluates per-sensor weights (w_stillness, w_pitch, w_hr) learned by AdaptiveLearningEngine.
+/// Integrates granular micro-jitter variance thresholds and per-sensor feature weights.
 @MainActor
 final class SleepDetectionEngine: ObservableObject {
     
@@ -46,8 +46,12 @@ final class SleepDetectionEngine: ObservableObject {
         let wPitch = settings.useAutoSensitivity ? adaptiveEngine.weightPitch : 0.40
         let wHR = settings.useAutoSensitivity ? adaptiveEngine.weightHR : 0.35
         
+        // Apply granular micro-jitter threshold calibration
+        let activeJitterThreshold = max(0.005, settings.stillnessThreshold + (settings.useAutoSensitivity ? adaptiveEngine.microJitterThresholdOffset : 0.0))
+        let isMicroStill = motionManager.forceSimulatedStillness || (motionManager.movementScore < activeJitterThreshold)
+        
         // 1. Micro-Jitter Stillness
-        let stillnessCondition = motionManager.isStill && motionManager.stillDuration >= requiredStillnessSeconds
+        let stillnessCondition = isMicroStill && motionManager.stillDuration >= requiredStillnessSeconds
         wasStillnessActive = stillnessCondition
         if stillnessCondition {
             score += wStillness
