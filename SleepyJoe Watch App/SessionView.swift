@@ -1,31 +1,35 @@
 import SwiftUI
 
 /// Active session view – native standalone watch face.
-/// Header layout is 100% identical to ContentView so gearshape and xmark icons match pixel-for-pixel.
+/// Restored to original ZStack layout with xmark placed neatly under the top status bar (padding top 34).
 struct SessionView: View {
     @ObservedObject var sessionManager: SessionManager
     @State private var isPulsing = false
     @State private var feedbackAnimationColor: Color? = nil
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header: Identical bounds, padding, and font size as ContentView's gear icon
-            HStack {
-                Spacer()
-                
-                Button {
-                    sessionManager.stopSession()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 6)
-            .padding(.top, 2)
+        ZStack {
+            Color.black.ignoresSafeArea()
             
-            Spacer()
+            // Top Right Discreet 'X' Dismissal Button (Originally top 28, now slightly further down at top 34)
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        sessionManager.stopSession()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.45))
+                            .frame(width: 26, height: 26)
+                            .background(Color.white.opacity(0.14), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 34)
+                    .padding(.trailing, 10)
+                }
+                Spacer()
+            }
             
             // Center: Minimalist Ambient Status Gauge
             VStack(spacing: 10) {
@@ -52,42 +56,43 @@ struct SessionView: View {
                     .foregroundStyle(.white.opacity(0.4))
             }
             
-            Spacer()
-            
             // Bottom: Live Discreet Feedback Bar (Only shown if Auto-Sensitivity is active)
             if sessionManager.showFeedbackPrompt && sessionManager.settings.useAutoSensitivity {
-                HStack(spacing: 18) {
-                    // True Positive (✓ Echtes Einnicken)
-                    Button {
-                        triggerFeedbackAnimation(color: .green)
-                        sessionManager.submitFeedback(wasTruePositive: true)
-                    } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.15), in: Circle())
-                    }
-                    .buttonStyle(.plain)
+                VStack {
+                    Spacer()
                     
-                    // False Positive (✕ Fehlalarm)
-                    Button {
-                        triggerFeedbackAnimation(color: .orange)
-                        sessionManager.submitFeedback(wasTruePositive: false)
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.15), in: Circle())
+                    HStack(spacing: 18) {
+                        // True Positive (✓ Echtes Einnicken)
+                        Button {
+                            triggerFeedbackAnimation(color: .green)
+                            sessionManager.submitFeedback(wasTruePositive: true)
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.15), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        
+                        // False Positive (✕ Fehlalarm)
+                        Button {
+                            triggerFeedbackAnimation(color: .orange)
+                            sessionManager.submitFeedback(wasTruePositive: false)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.15), in: Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.bottom, 6)
+                    .transition(.opacity)
                 }
-                .padding(.bottom, 4)
-                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 4)
         .onAppear {
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
                 isPulsing = true
