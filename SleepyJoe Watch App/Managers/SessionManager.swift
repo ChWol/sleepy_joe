@@ -4,7 +4,7 @@ import WatchKit
 
 /// Orchestrates the monitoring session by coordinating MotionManager, HealthKitManager,
 /// SleepDetectionEngine, AdaptiveLearningEngine, TelemetryLogger, and HapticManager.
-/// Ensures CONFIDENT ALARM PERSISTENCE: alarms are only cancelled by a sustained strong waking motion or explicit tap.
+/// Instantly cancels alarms upon high-energy waking motion (hand shake / arm posture reset) without artificial time delays.
 @MainActor
 final class SessionManager: ObservableObject {
     
@@ -52,7 +52,6 @@ final class SessionManager: ObservableObject {
     private var pingCountdownTimer: Timer?
     
     private var consecutiveAlerts: Int = 0
-    private var strongWakingMotionDuration: Double = 0.0
     
     // MARK: - Init
     
@@ -106,7 +105,6 @@ final class SessionManager: ObservableObject {
         
         alertCount = 0
         consecutiveAlerts = 0
-        strongWakingMotionDuration = 0
         sessionStartTime = Date()
         elapsedTime = 0
         showFeedbackPrompt = false
@@ -162,7 +160,6 @@ final class SessionManager: ObservableObject {
         sessionStartTime = nil
         nextPingTime = nil
         consecutiveAlerts = 0
-        strongWakingMotionDuration = 0
         showFeedbackPrompt = false
         isGracePeriodActive = false
         
@@ -193,21 +190,15 @@ final class SessionManager: ObservableObject {
                     continue
                 }
                 
-                // Confident Alarm Persistence Check during Alerting State
+                // Instant Waking Motion Check during Alerting State
                 if self.state == .alerting {
-                    // Requires a distinct, strong waking motion (score > 0.20 and not still) sustained for 1.5s
-                    let isStrongWakingMotion = (self.motionManager.movementScore > 0.20) && !self.motionManager.isStill
-                    if isStrongWakingMotion {
-                        self.strongWakingMotionDuration += 0.5
-                    } else {
-                        self.strongWakingMotionDuration = 0.0
-                    }
+                    // Instantly cancel alarm if user performs a high-energy wake gesture (hand shake score > 0.40 or posture reset)
+                    let isHighEnergyWakeGesture = (self.motionManager.movementScore > 0.40) || (!self.motionManager.isPitchDropDetected && self.motionManager.movementScore > 0.20)
                     
-                    if self.strongWakingMotionDuration >= 1.5 {
-                        // Confirmed strong wake motion! Now transition to Active
+                    if isHighEnergyWakeGesture {
+                        // Instant cancellation on high-energy waking gesture!
                         self.hapticManager.stopCurrentSequence()
                         self.consecutiveAlerts = 0
-                        self.strongWakingMotionDuration = 0.0
                         self.state = .monitoring
                         self.startGracePeriod(seconds: 10)
                         self.startFeedbackPrompt(seconds: 5)
@@ -244,7 +235,6 @@ final class SessionManager: ObservableObject {
         state = .alerting
         alertCount += 1
         consecutiveAlerts += 1
-        strongWakingMotionDuration = 0.0
         
         switch consecutiveAlerts {
         case 1:
@@ -255,13 +245,12 @@ final class SessionManager: ObservableObject {
             hapticManager.playAlarm()
         }
         
-        // Full Alarm Sequence Auto-Completion after 5.5s if not cancelled by strong motion or tap
+        // Full Alarm Sequence Auto-Completion after 5.5s if not cancelled by instant high-energy gesture or tap
         Task {
             try? await Task.sleep(nanoseconds: 5_500_000_000)
             if self.state == .alerting {
                 self.hapticManager.stopCurrentSequence()
                 self.consecutiveAlerts = 0
-                self.strongWakingMotionDuration = 0.0
                 self.state = .monitoring
                 self.startGracePeriod(seconds: 10)
                 self.startFeedbackPrompt(seconds: 5)
