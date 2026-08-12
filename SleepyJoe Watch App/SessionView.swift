@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Active session view – native standalone watch face with discreet, prolonged feedback.
-/// Layout header matches ContentView exactly (xmark never overlaps centered clock or text).
+/// Active session view – native standalone watch face.
+/// Header layout is 100% identical to ContentView so gearshape and xmark icons match pixel-for-pixel.
 struct SessionView: View {
     @ObservedObject var sessionManager: SessionManager
     @State private var isPulsing = false
@@ -9,7 +9,7 @@ struct SessionView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header Bar: Exactly aligned with ContentView header (no overlap!)
+            // Header: Identical bounds, padding, and font size as ContentView's gear icon
             HStack {
                 Spacer()
                 
@@ -17,10 +17,8 @@ struct SessionView: View {
                     sessionManager.stopSession()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .frame(width: 24, height: 24)
-                        .background(Color.white.opacity(0.12), in: Circle())
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -56,8 +54,8 @@ struct SessionView: View {
             
             Spacer()
             
-            // Bottom: Live Discreet Feedback Bar (Stays available for 25s so user can raise arm & label)
-            if sessionManager.showFeedbackPrompt {
+            // Bottom: Live Discreet Feedback Bar (Only shown if Auto-Sensitivity is active)
+            if sessionManager.showFeedbackPrompt && sessionManager.settings.useAutoSensitivity {
                 HStack(spacing: 18) {
                     // True Positive (✓ Echtes Einnicken)
                     Button {

@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// Streamlined, minimal Settings view with Auto vs Manual sensitivity toggle
-/// and double-confirmation dialog for resetting calibration.
+/// Streamlined Settings view with exact requested section order:
+/// 1. Haptik / Intensität
+/// 2. Zufalls-Pings
+/// 3. Empfindlichkeit (Auto vs Manuell)
+/// 4. Gelerntes Profil (Only visible when Auto-Empfindlichkeit is enabled)
 struct SettingsView: View {
     @ObservedObject var sessionManager: SessionManager
     @Environment(\.dismiss) private var dismiss
@@ -26,7 +29,31 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Sensitivity Section: Auto (Gelernt) vs Manuell
+                // 1. Haptik / Intensität (Top)
+                Section("Intensität (Haptik)") {
+                    Picker("Stärke", selection: $hapticStrength) {
+                        ForEach(HapticStrength.allCases) { strength in
+                            Text(strength.label).tag(strength)
+                        }
+                    }
+                }
+                
+                // 2. Zufalls-Pings
+                Section("Zufalls-Pings") {
+                    Toggle("Aktiv", isOn: $enablePings)
+                    
+                    if enablePings {
+                        Picker("Intervall", selection: $pingInterval) {
+                            Text("1 Min").tag(1)
+                            Text("5 Min").tag(5)
+                            Text("10 Min").tag(10)
+                            Text("15 Min").tag(15)
+                            Text("20 Min").tag(20)
+                        }
+                    }
+                }
+                
+                // 3. Empfindlichkeit (Auto vs Manuell)
                 Section("Empfindlichkeit") {
                     Toggle("Auto (Gelernt)", isOn: $useAutoSensitivity)
                     
@@ -43,65 +70,46 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Random Pings
-                Section("Zufalls-Pings") {
-                    Toggle("Aktiv", isOn: $enablePings)
-                    
-                    if enablePings {
-                        Picker("Intervall", selection: $pingInterval) {
-                            Text("1 Min").tag(1)
-                            Text("5 Min").tag(5)
-                            Text("10 Min").tag(10)
-                            Text("15 Min").tag(15)
-                            Text("20 Min").tag(20)
+                // 4. Gelerntes Profil (Only visible if Auto-Sensitivity is active)
+                if useAutoSensitivity {
+                    Section("Gelerntes Profil") {
+                        HStack {
+                            Text("Genauigkeit")
+                            Spacer()
+                            Text("\(sessionManager.adaptiveEngine.precisionPercentage)%")
+                                .foregroundStyle(.secondary)
                         }
-                    }
-                }
-                
-                // Haptics
-                Section("Haptik") {
-                    Picker("Stärke", selection: $hapticStrength) {
-                        ForEach(HapticStrength.allCases) { strength in
-                            Text(strength.label).tag(strength)
+                        
+                        HStack {
+                            Text("Anpassung")
+                            Spacer()
+                            Text(String(format: "%+.1fs", sessionManager.adaptiveEngine.personalStillnessOffset))
+                                .foregroundStyle(.secondary)
                         }
+                        
+                        HStack {
+                            Text("Datensätze")
+                            Spacer()
+                            Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Button("Lernen zurücksetzen") {
+                            showResetConfirmation = true
+                        }
+                        .foregroundStyle(.red.opacity(0.8))
                     }
-                }
-                
-                // Live Adaptive Calibration Analytics & Reset
-                Section("Gelerntes Profil") {
-                    HStack {
-                        Text("Genauigkeit")
-                        Spacer()
-                        Text("\(sessionManager.adaptiveEngine.precisionPercentage)%")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Anpassung")
-                        Spacer()
-                        Text(String(format: "%+.1fs", sessionManager.adaptiveEngine.personalStillnessOffset))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Datensätze")
-                        Spacer()
-                        Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Button("Lernen zurücksetzen") {
-                        showResetConfirmation = true
-                    }
-                    .foregroundStyle(.red.opacity(0.8))
                 }
             }
             .navigationTitle("Optionen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
                         saveAndDismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
                     }
                 }
             }
