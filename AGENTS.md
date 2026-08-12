@@ -38,7 +38,9 @@ In der echten Nutzung gibt es ein starkes Klassen-Ungleichgewicht:
 
 1. **Refraktäre Grace Period (10 Sekunden)**:
    - Sobald die App wieder auf den Status **Aktiv (Grün)** zurückkehrt (z. B. nach Armbewegung oder Alarm-Ende), geht das System für 10 Sekunden in eine kurze Schutzphase. So wird verhindert, dass man direkt beim Wiederaufrichten erneut erschreckt wird.
-2. **5-Sekunden Feedback-Fenster nach Aktivierung**:
+2. **Confident Alarm Persistence (Kein Abbrechen durch Mikro-Bewegungen)**:
+   - Wenn ein Alarm vibriert, wird er **nicht** durch kleine Zuckungen oder minimale Mikro-Zitterer abgebrochen. Der Alarm stoppt erst bei einer **nachhaltigen Aufwach-Bewegung (mindestens 1,5 Sekunden deutliche Bewegung)** oder durch direktes Antippen von `✓`/`✕`.
+3. **5-Sekunden Feedback-Fenster nach Aktivierung**:
    - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) erscheinen erst in dem Moment, in dem die App wieder in den Status **Aktiv (Grün)** wechselt, und bleiben **exakt 5 Sekunden** verfügbar. So hat der Nutzer genügend Zeit zum Labeln, während der Alarm in Ruhe ausläuft oder der Arm angehoben wird.
 3. **Sofortiger Vibrations-Stopp bei Label-Tap**:
    - Sobald `✓` oder `✕` angetippt werden, bricht `hapticManager.stopCurrentSequence()` die Vibration Augenblicklich ab.
