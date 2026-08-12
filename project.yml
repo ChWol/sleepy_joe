@@ -29,6 +29,8 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_WKApplication: true
         INFOPLIST_KEY_WKWatchOnly: true
+        INFOPLIST_KEY_WKBackgroundModes:
+          - workout-processing
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
