@@ -2,7 +2,7 @@ import Foundation
 import CoreMotion
 
 /// Monitors wrist movement via device motion & accelerometer to detect
-/// micro-jitter stillness and posture pitch drop (arm sagging).
+/// micro-jitter stillness and posture pitch drop (arm sagging or resting).
 @MainActor
 final class MotionManager: ObservableObject {
     
@@ -14,7 +14,7 @@ final class MotionManager: ObservableObject {
     /// Current wrist pitch angle in degrees (-90° to +90°)
     @Published var pitchDegrees: Double = 0.0
     
-    /// Whether a posture drop (arm sagging down >15°) was detected
+    /// Whether a posture drop or resting tilt (arm sagging or angled down) was detected
     @Published var isPitchDropDetected: Bool = false
     
     /// Whether the user is currently considered "still" (below threshold)
@@ -39,7 +39,6 @@ final class MotionManager: ObservableObject {
     private var pitchBuffer: [Double] = []
     private let bufferCapacity = 50 // 5 seconds at 10Hz
     private var stillnessStartTime: Date?
-    private var baselinePitch: Double?
     private var settings: SessionSettings
     
     private var prevAcceleration: (x: Double, y: Double, z: Double)?
@@ -62,7 +61,6 @@ final class MotionManager: ObservableObject {
         pitchBuffer.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
-        baselinePitch = nil
         isStill = false
         isPitchDropDetected = false
         stillDuration = 0
@@ -110,7 +108,6 @@ final class MotionManager: ObservableObject {
         pitchBuffer.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
-        baselinePitch = nil
     }
     
     func toggleSimulatedStillness() {
@@ -143,12 +140,12 @@ final class MotionManager: ObservableObject {
                     simulatedX = Double.random(in: 0.001...0.002)
                     simulatedY = Double.random(in: 0.001...0.002)
                     simulatedZ = Double.random(in: 0.001...0.002)
-                    simulatedPitch = -35.0 // Simulated sag downward
+                    simulatedPitch = -35.0
                 } else {
                     simulatedX = Double.random(in: 0.05...0.25)
                     simulatedY = Double.random(in: 0.05...0.25)
                     simulatedZ = Double.random(in: 0.05...0.25)
-                    simulatedPitch = 0.0 // Normal upright
+                    simulatedPitch = 0.0
                 }
                 
                 self.processMotion(x: simulatedX, y: simulatedY, z: simulatedZ, pitch: simulatedPitch)
@@ -161,20 +158,22 @@ final class MotionManager: ObservableObject {
     private func processMotion(x: Double, y: Double, z: Double, pitch: Double) {
         pitchDegrees = pitch
         
-        // Pitch Drop Analysis
         pitchBuffer.append(pitch)
         if pitchBuffer.count > bufferCapacity {
             pitchBuffer.removeFirst()
         }
         
+        // Pitch drop / resting tilt detection:
+        // Absolute downward pitch OR relative pitch drop >10 degrees
+        var relativeDrop = false
         if pitchBuffer.count >= 20 {
             let initialPitch = pitchBuffer.prefix(10).reduce(0, +) / 10.0
             let currentPitchAverage = pitchBuffer.suffix(10).reduce(0, +) / 10.0
-            let pitchDrop = initialPitch - currentPitchAverage
-            
-            // If pitch dropped by more than 15 degrees downward
-            isPitchDropDetected = forceSimulatedStillness || (pitchDrop > 15.0)
+            relativeDrop = (initialPitch - currentPitchAverage) > 10.0
         }
+        
+        let absoluteDownwardTilt = pitch < -15.0
+        isPitchDropDetected = forceSimulatedStillness || relativeDrop || absoluteDownwardTilt
         
         // Acceleration Delta
         let delta: Double

@@ -22,7 +22,7 @@
 
 /* Begin PBXFileReference section */
 		0E61A03E4205B7B91CC84C6E /* MotionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionManager.swift; sourceTree = "<group>"; };
-		2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepyJoe Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2439AABE8B02B9735881AEC7 /* Focus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Focus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		456F4CC4FBE328EEF75FBF18 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		70FE24ED27136BE3F4BD170A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -63,7 +63,7 @@
 		732A671359CE2A15B520CB04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */,
+				2439AABE8B02B9735881AEC7 /* Focus.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -106,7 +106,7 @@
 			packageProductDependencies = (
 			);
 			productName = "SleepyJoe Watch App";
-			productReference = 2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */;
+			productReference = 2439AABE8B02B9735881AEC7 /* Focus.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -117,8 +117,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 99DD46FC2F2AF24BEE161DD6 /* Build configuration list for PBXProject "SleepyJoe" */;
 			developmentRegion = en;
@@ -296,6 +294,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KUD273S78M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus monitors heart rate to ensure session wellness and prevent drowsiness.";
@@ -321,6 +320,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KUD273S78M;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "SleepyJoe Watch App/Info.plist";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus monitors heart rate to ensure session wellness and prevent drowsiness.";

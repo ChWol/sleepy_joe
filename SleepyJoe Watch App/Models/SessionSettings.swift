@@ -27,13 +27,11 @@ enum HapticStrength: Int, Codable, CaseIterable, Identifiable {
 }
 
 // MARK: - Session Settings
-/// Persisted settings for the monitoring session.
-/// All values are stored in UserDefaults via @AppStorage in the views.
 struct SessionSettings: Codable, Equatable {
-    /// Sensitivity of stillness detection (1 = least sensitive, 5 = most sensitive)
+    /// Sensitivity level (1 = least sensitive / conservative, 5 = most sensitive / aggressive)
     var sensitivity: Int = 3
     
-    /// Base interval (in minutes) between random preventive pings
+    /// Base interval (in minutes) between random preventive pings (1, 5, 10, 15, 20)
     var pingIntervalMinutes: Int = 10
     
     /// Haptic feedback strength
@@ -45,38 +43,49 @@ struct SessionSettings: Codable, Equatable {
     /// Whether random preventive pings are enabled
     var enableRandomPings: Bool = true
     
-    // MARK: - Computed Properties
+    // MARK: - Dynamic Sensitivity Metrics
     
-    /// Stillness threshold derived from sensitivity level.
-    /// Higher sensitivity = lower threshold = detects smaller amounts of stillness.
-    var stillnessThreshold: Double {
+    /// Confidence threshold required to trigger sleep alert.
+    /// At Level 5 (Highest Sensitivity), threshold is aggressive (0.35), so even subtle stillness triggers quickly.
+    var confidenceThreshold: Double {
         switch sensitivity {
-        case 1: return 0.12   // Very tolerant – only deep stillness triggers
-        case 2: return 0.08
-        case 3: return 0.05   // Balanced default
-        case 4: return 0.03
-        case 5: return 0.015  // Very sensitive – slight stillness triggers
-        default: return 0.05
+        case 5: return 0.35  // Aggressive: trigger extremely fast
+        case 4: return 0.45
+        case 3: return 0.55  // Balanced default
+        case 2: return 0.65
+        case 1: return 0.75  // Conservative
+        default: return 0.55
         }
     }
     
-    /// How many seconds of stillness before triggering an alert.
-    /// More sensitive = shorter delay.
-    var alertDelaySeconds: TimeInterval {
+    /// Minimum stillness duration (seconds) required before confidence builds up.
+    var stillnessRequiredSeconds: Double {
         switch sensitivity {
-        case 1: return 45
-        case 2: return 35
-        case 3: return 25
-        case 4: return 18
-        case 5: return 12
-        default: return 25
+        case 5: return 1.5   // Triggers after just 1.5s of micro-stillness
+        case 4: return 2.5
+        case 3: return 3.5
+        case 2: return 5.0
+        case 1: return 7.0
+        default: return 3.5
+        }
+    }
+    
+    /// Micro-jitter stillness threshold derived from sensitivity.
+    var stillnessThreshold: Double {
+        switch sensitivity {
+        case 5: return 0.10  // Broad threshold: readily flags micro-stillness
+        case 4: return 0.08
+        case 3: return 0.05
+        case 2: return 0.03
+        case 1: return 0.015
+        default: return 0.05
         }
     }
     
     /// Random ping interval range (seconds). Adds ±30% randomness around base interval.
     var pingIntervalRange: ClosedRange<TimeInterval> {
         let base = TimeInterval(pingIntervalMinutes * 60)
-        let variance = base * 0.3
+        let variance = max(10, base * 0.3)
         return (base - variance)...(base + variance)
     }
     

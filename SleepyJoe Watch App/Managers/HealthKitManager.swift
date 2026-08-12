@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 
 /// Manages real-time Heart Rate streaming via HKWorkoutSession and HKLiveWorkoutBuilder.
-/// Computes a rolling 5-minute waking resting baseline and calculates relative HR drops.
+/// Instantly seeds resting baseline on first sample and tracks relative HR drops without delay.
 @MainActor
 final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     
@@ -21,7 +21,7 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     private var builder: HKLiveWorkoutBuilder?
     
     private var hrHistory: [Double] = []
-    private let maxHistorySamples = 60 // ~5 minutes at 5s intervals
+    private let maxHistorySamples = 60
     
     // MARK: - Authorization
     
@@ -99,17 +99,19 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
         
         currentHeartRate = hr
         
-        // Add to rolling history
+        if baselineHeartRate == 0.0 {
+            // Seed baseline instantly from first valid sample
+            baselineHeartRate = hr
+        } else {
+            // Slowly adapt baseline using Exponential Moving Average
+            baselineHeartRate = (baselineHeartRate * 0.9) + (hr * 0.1)
+        }
+        
         hrHistory.append(hr)
         if hrHistory.count > maxHistorySamples {
             hrHistory.removeFirst()
         }
         
-        // Calculate rolling baseline (average of samples)
-        let sum = hrHistory.reduce(0, +)
-        baselineHeartRate = sum / Double(hrHistory.count)
-        
-        // Calculate percentage drop below baseline
         if baselineHeartRate > 0 {
             let drop = max(0, (baselineHeartRate - currentHeartRate) / baselineHeartRate)
             heartRateDropPercentage = drop

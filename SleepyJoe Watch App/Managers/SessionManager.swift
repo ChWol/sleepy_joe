@@ -136,10 +136,11 @@ final class SessionManager: ObservableObject {
                 guard self.state != .idle else { return }
                 guard self.settings.enableMotionDetection else { continue }
                 
-                // Evaluate Multi-Sensor Sleep Detection Engine
+                // Evaluate Multi-Sensor Sleep Detection Engine with dynamic settings
                 self.sleepDetectionEngine.evaluate(
                     motionManager: self.motionManager,
-                    healthKitManager: self.healthKitManager
+                    healthKitManager: self.healthKitManager,
+                    settings: self.settings
                 )
                 
                 if self.sleepDetectionEngine.isSleepDetected {

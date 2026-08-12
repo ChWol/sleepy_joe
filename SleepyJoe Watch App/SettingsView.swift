@@ -33,6 +33,7 @@ struct SettingsView: View {
                     
                     if enablePings {
                         Picker("Intervall", selection: $pingInterval) {
+                            Text("1 Min").tag(1)
                             Text("5 Min").tag(5)
                             Text("10 Min").tag(10)
                             Text("15 Min").tag(15)
