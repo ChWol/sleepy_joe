@@ -113,8 +113,24 @@ final class SleepDetectionEngine: ObservableObject {
         
         mlConfidence = currentMLConfidence
         
-        // Ensemble: Use the HIGHER of rule-based and ML confidence
-        totalConfidence = max(ruleConfidence, mlConfidence)
+        // ── Smart Ensemble Blending ──
+        // Once the ML model has collected user feedback (>= 2 samples), empower it to suppress false alarms!
+        let hasTrainedSamples = (adaptiveEngine.truePositivesCount + adaptiveEngine.falsePositivesCount) >= 2
+        
+        if let classifier = mlClassifier, classifier.isModelReady, hasTrainedSamples {
+            if mlConfidence < 0.20 {
+                // ML model is highly confident the user is awake (e.g. laptop scrolling/reading)
+                // Suppress false alarms from stillness alone!
+                totalConfidence = min(0.30, ruleConfidence * 0.35)
+            } else {
+                // ML model sees drowsiness signs or elevated sleep probability
+                totalConfidence = max(ruleConfidence * 0.35 + mlConfidence * 0.65, mlConfidence)
+            }
+        } else {
+            // Cold start fallback: use max of available signals
+            totalConfidence = max(ruleConfidence, mlConfidence)
+        }
+        
         detectionReason = reasons.joined(separator: " | ")
         
         let thresholdMet = totalConfidence >= activeThreshold

@@ -63,12 +63,12 @@ struct SessionSettings: Codable, Equatable {
     /// Minimum stillness duration (seconds) required before confidence builds up.
     var stillnessRequiredSeconds: Double {
         switch sensitivity {
-        case 5: return 1.5
-        case 4: return 2.5
-        case 3: return 3.5
-        case 2: return 5.0
-        case 1: return 7.0
-        default: return 3.5
+        case 5: return 2.0
+        case 4: return 3.5
+        case 3: return 4.5
+        case 2: return 6.0
+        case 1: return 8.0
+        default: return 4.5
         }
     }
     

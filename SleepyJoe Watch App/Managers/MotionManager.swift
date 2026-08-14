@@ -192,16 +192,17 @@ final class MotionManager: ObservableObject {
         }
         
         // Pitch drop / resting tilt detection:
-        // Absolute downward pitch OR relative pitch drop >10 degrees
+        // Requires dynamic pitch sagging (>12 degrees drop during window) OR arm hanging vertically down (<-60 deg)
+        // Does NOT flag normal flat/downward desk resting posture (-15 to -35 deg) as falling asleep!
         var relativeDrop = false
         if pitchBuffer.count >= 20 {
             let initialPitch = pitchBuffer.prefix(10).reduce(0, +) / 10.0
             let currentPitchAverage = pitchBuffer.suffix(10).reduce(0, +) / 10.0
-            relativeDrop = (initialPitch - currentPitchAverage) > 10.0
+            relativeDrop = (initialPitch - currentPitchAverage) > 12.0
         }
         
-        let absoluteDownwardTilt = pitch < -15.0
-        isPitchDropDetected = forceSimulatedStillness || relativeDrop || absoluteDownwardTilt
+        let hangingArm = pitch < -60.0
+        isPitchDropDetected = forceSimulatedStillness || relativeDrop || hangingArm
         
         // Acceleration Delta
         let delta: Double

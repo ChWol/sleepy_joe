@@ -88,8 +88,8 @@ final class AdaptiveLearningEngine: ObservableObject {
             if wasStillnessActive {
                 // Tighten granular micro-jitter variance threshold (epsilon_jitter) so quiet tremors are distinguished from true atonia
                 microJitterThresholdOffset = max(-0.025, microJitterThresholdOffset - 0.005)
-                // Cap duration offset to max +1.0s to preserve fast response speed
-                personalStillnessOffset = min(1.0, personalStillnessOffset + 0.15)
+                // Allow stillness offset to scale up to +4.0s to accommodate desk/reading work
+                personalStillnessOffset = min(4.0, personalStillnessOffset + 0.25)
             }
             
             if wasHRActive {
