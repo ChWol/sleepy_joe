@@ -324,29 +324,12 @@ final class SessionManager: ObservableObject {
         alertCount += 1
         consecutiveAlerts += 1
         
-        // Show feedback buttons IMMEDIATELY upon alerting!
-        startFeedbackPrompt(seconds: 5)
+        // Show feedback buttons IMMEDIATELY upon alerting
+        feedbackDismissTask?.cancel()
+        showFeedbackPrompt = true
         
-        switch consecutiveAlerts {
-        case 1:
-            hapticManager.playWake()
-        case 2:
-            hapticManager.playAlarm()
-        default:
-            hapticManager.playAlarm()
-        }
-        
-        // Full Alarm Sequence Auto-Completion after 5.5s if not cancelled by instant high-energy gesture or tap
-        Task {
-            try? await Task.sleep(nanoseconds: 5_500_000_000)
-            if self.state == .alerting {
-                self.hapticManager.stopCurrentSequence()
-                self.consecutiveAlerts = 0
-                self.state = .monitoring
-                self.startGracePeriod(seconds: 10)
-                self.startFeedbackPrompt(seconds: 5)
-            }
-        }
+        // Rings continuously until user clearly moves or labels
+        hapticManager.playContinuousAlarm(escalated: consecutiveAlerts >= 2)
     }
     
     private func startFeedbackPrompt(seconds: Double) {

@@ -36,16 +36,18 @@ In der echten Nutzung gibt es ein starkes Klassen-Ungleichgewicht:
 
 ## 3. Implementierte UX & System-Regeln
 
-1. **Sofortige Aufwach-Erkennung (Instant High-Energy Wake Gesture)**:
-   - Bei der Aufwach-Erkennung gibt es **keine künstliche Zeitverzögerung (0 Sekunden)**. 
-   - Sobald die Sensoren eine klare Aufwach-Geste erfassen (Hand schütteln $\text{movementScore} > 0.40$ oder Arm weg bewegen / Haltung wieder aufrichten), bricht der Alarm **sofort augenblicklich** ab.
+1. **Endlos-Alarm bis zur bewussten Aufwach-Aktion (Continuous Looping Alarm)**:
+   - Der Alarm vibriert **kontinuierlich und endlos** weiter (kein künstlicher 5.5s-Auto-Timeout), bis der Nutzer entweder:
+     a) Eine klare, bewusste Aufwach-Geste ausführt (Hand schütteln $\text{movementScore} > 0.40$ oder Arm aufrichten $\text{movementScore} > 0.20$), ODER
+     b) Direkt auf einen der Feedback-Buttons (`[ ✓ ]` oder `[ ✕ ]`) tippt.
    - Kleines passives Zucken ($\text{movementScore} < 0.20$) wird ignoriert, damit der Alarm sicher weckt.
-2. **Refraktäre Grace Period (10 Sekunden)**:
+   - Sobald die Aufwach-Aktion erkannt wird, bricht der Alarm **augenblicklich mit 0 Sekunden Latenz** ab.
+2. **Sofortige Button-Anzeige beim Alarm (Instant Feedback Buttons)**:
+   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) erscheinen **sofort in derselben Millisekunde**, in der der Alarm ausgelöst wird, und bleiben nach dem Aufwachen für 5 Sekunden sichtbar.
+3. **Refraktäre Grace Period (10 Sekunden)**:
    - Sobald die App wieder auf den Status **Aktiv (Grün)** zurückkehrt, geht das System für 10 Sekunden in eine Schutzphase, um Mehrfach-Schocks zu vermeiden.
-3. **5-Sekunden Feedback-Fenster nach Aktivierung**:
-   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) erscheinen erst beim Wechsel zurück in **Aktiv (Grün)** für 5 Sekunden.
 4. **Diskrete Opt-In Logik**:
-   - Wird das Feedback ignoriert, verfällt es nach 5s spurlos ohne Datenänderung.
+   - Wird das Feedback nach dem Aufwachen 5s ignoriert, verfällt es spurlos ohne Datenänderung.
 
 ---
 

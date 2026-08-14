@@ -67,59 +67,63 @@ final class HapticManager: ObservableObject {
         }
     }
     
-    /// Play a wake-up sequence (moderate intensity, used when stillness first detected)
-    func playWake() {
+    /// Play a continuous looping alarm sequence that rings until explicitly stopped by user action (wake gesture or label tap).
+    func playContinuousAlarm(escalated: Bool = false) {
         stopCurrentSequence()
-        currentLevel = .wake
-        print("⚠️ [HapticManager] Triggered Wake Alarm Sequence")
+        currentLevel = escalated ? .alarm : .wake
+        print("🚨 [HapticManager] Started Continuous Looping Alarm (escalated: \(escalated))")
         
         hapticTask = Task {
             isPlaying = true
-            let pattern = Int.random(in: 0...2)
+            var cycle = 0
             
-            switch pattern {
-            case 0:
-                await playPattern_DoubleTap(count: settings.hapticRepetitions)
-            case 1:
-                await playPattern_Ascending(count: settings.hapticRepetitions)
-            default:
-                await playPattern_IrregularBurst(count: settings.hapticRepetitions)
+            while !Task.isCancelled {
+                cycle += 1
+                
+                if escalated || cycle > 2 {
+                    // Escalated high-intensity bursts
+                    for _ in 0..<4 {
+                        guard !Task.isCancelled else { break }
+                        let type = aggressiveTypes.randomElement() ?? .notification
+                        WKInterfaceDevice.current().play(type)
+                        let delay = Double.random(in: 0.12...0.25)
+                        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    }
+                    
+                    guard !Task.isCancelled else { break }
+                    WKInterfaceDevice.current().play(.directionUp)
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    WKInterfaceDevice.current().play(.notification)
+                } else {
+                    // Moderate wake bursts
+                    let pattern = cycle % 3
+                    switch pattern {
+                    case 0:
+                        await playPattern_DoubleTap(count: 2)
+                    case 1:
+                        await playPattern_Ascending(count: 3)
+                    default:
+                        await playPattern_IrregularBurst(count: 2)
+                    }
+                }
+                
+                // Short pause between repeating alarm bursts (0.6s to 1.0s)
+                let gap = Double.random(in: 0.6...1.0)
+                try? await Task.sleep(nanoseconds: UInt64(gap * 1_000_000_000))
             }
             
             isPlaying = false
         }
     }
     
-    /// Play an alarm sequence (maximum intensity, escalated alert)
+    /// Play a single wake-up sequence
+    func playWake() {
+        playContinuousAlarm(escalated: false)
+    }
+    
+    /// Play an escalated alarm sequence
     func playAlarm() {
-        stopCurrentSequence()
-        currentLevel = .alarm
-        print("🚨 [HapticManager] Triggered Escalated Alarm Kaskade")
-        
-        hapticTask = Task {
-            isPlaying = true
-            let repetitions = settings.hapticRepetitions + 3
-            
-            for _ in 0..<repetitions {
-                guard !Task.isCancelled else { break }
-                let type = aggressiveTypes.randomElement() ?? .notification
-                WKInterfaceDevice.current().play(type)
-                let delay = Double.random(in: 0.15...0.4)
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-            
-            guard !Task.isCancelled else { isPlaying = false; return }
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            
-            for _ in 0..<3 {
-                guard !Task.isCancelled else { break }
-                await playPattern_TripleBurst()
-                let pause = Double.random(in: 0.5...1.0)
-                try? await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000))
-            }
-            
-            isPlaying = false
-        }
+        playContinuousAlarm(escalated: true)
     }
     
     /// Play a short sample corresponding to the selected haptic strength level.
