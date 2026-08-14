@@ -119,7 +119,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Wirklich zurücksetzen", role: .destructive) {
-                    sessionManager.adaptiveEngine.resetCalibration()
+                    sessionManager.resetAllLearning()
                 }
                 Button("Abbrechen", role: .cancel) {}
             } message: {

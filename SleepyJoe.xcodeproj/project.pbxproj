@@ -11,33 +11,47 @@
 		175EEF709ABE5FF118423524 /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDFAD8EA3DFE8E2875C810E /* SessionView.swift */; };
 		2437C4CB30FC0102AA2B9DC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7BF1217E2D94DD50B7E4514 /* Assets.xcassets */; };
 		29D070FAAEB7D4A44767D048 /* MotionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E61A03E4205B7B91CC84C6E /* MotionManager.swift */; };
+		29E2DA0E5F09EA70DEA912F4 /* FeatureExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F280645CEF7F8C3C6E31FEF /* FeatureExtractor.swift */; };
+		2FE7CC782EC888E4B2406993 /* SleepyClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = F2470E3C0495B64CF760AF73 /* SleepyClassifier.mlmodel */; };
 		4CA36A32B9AAB08D0BBEF3E3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DA42023C77E9658C3690C1 /* ContentView.swift */; };
 		4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */; };
 		7C1BE871FE035703C0103DE5 /* SleepDetectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB61A4BE2DE7E5EF59DC6525 /* SleepDetectionEngine.swift */; };
 		81ED3F760D7DABA782F09D59 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4241EACDFD634FF8BC57736 /* HapticManager.swift */; };
+		9889101C1AF6B3415F129AD2 /* SleepMLClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = E519E4B084CBD59D7894DA9D /* SleepMLClassifier.swift */; };
+		9AAF11E42357C81B630EB901 /* anchor_samples.json in Resources */ = {isa = PBXBuildFile; fileRef = 3730B53DFA72F49BA62F5457 /* anchor_samples.json */; };
+		B13B198AC8F2E318D5C77C95 /* MLReplayBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C81D553562CE228F46F695E /* MLReplayBuffer.swift */; };
 		BA3A796DA89EB0E333B67934 /* TelemetryLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0844CDC5B25D007BA959D7 /* TelemetryLogger.swift */; };
+		C952A4898D8841D5F92B67AC /* BackgroundTrainingScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82B7467FE66D9C86A7C42460 /* BackgroundTrainingScheduler.swift */; };
 		DAB4DBAE38A91D28A2D9991C /* AdaptiveLearningEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E67B7849D1E149DD760EDE /* AdaptiveLearningEngine.swift */; };
 		EBDF34AA84879A2AAB429961 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6425694652FB89BD12BCA32 /* SessionManager.swift */; };
 		EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */; };
 		F3B5BAE00679899C8F582252 /* SessionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6485518729C0C067C9CA2A /* SessionSettings.swift */; };
+		F6B5E80B7297CDA34C7DC5FC /* OnDeviceTrainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDC1749C436DE3DE6972F95 /* OnDeviceTrainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0E61A03E4205B7B91CC84C6E /* MotionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionManager.swift; sourceTree = "<group>"; };
 		2439AABE8B02B9735881AEC7 /* SleepyJoe Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepyJoe Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3730B53DFA72F49BA62F5457 /* anchor_samples.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = anchor_samples.json; sourceTree = "<group>"; };
 		409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		456F4CC4FBE328EEF75FBF18 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		46E67B7849D1E149DD760EDE /* AdaptiveLearningEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLearningEngine.swift; sourceTree = "<group>"; };
+		4C81D553562CE228F46F695E /* MLReplayBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLReplayBuffer.swift; sourceTree = "<group>"; };
+		4CDC1749C436DE3DE6972F95 /* OnDeviceTrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceTrainer.swift; sourceTree = "<group>"; };
 		70FE24ED27136BE3F4BD170A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		77DA42023C77E9658C3690C1 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7C0844CDC5B25D007BA959D7 /* TelemetryLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryLogger.swift; sourceTree = "<group>"; };
+		82B7467FE66D9C86A7C42460 /* BackgroundTrainingScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTrainingScheduler.swift; sourceTree = "<group>"; };
+		8F280645CEF7F8C3C6E31FEF /* FeatureExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureExtractor.swift; sourceTree = "<group>"; };
 		B4241EACDFD634FF8BC57736 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		BB61A4BE2DE7E5EF59DC6525 /* SleepDetectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepDetectionEngine.swift; sourceTree = "<group>"; };
 		C6425694652FB89BD12BCA32 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		C7BF1217E2D94DD50B7E4514 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA6485518729C0C067C9CA2A /* SessionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSettings.swift; sourceTree = "<group>"; };
 		CFDFAD8EA3DFE8E2875C810E /* SessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionView.swift; sourceTree = "<group>"; };
+		E519E4B084CBD59D7894DA9D /* SleepMLClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepMLClassifier.swift; sourceTree = "<group>"; };
 		E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepyJoeApp.swift; sourceTree = "<group>"; };
+		F2470E3C0495B64CF760AF73 /* SleepyClassifier.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = SleepyClassifier.mlmodel; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -47,6 +61,20 @@
 				0A423C3BB27819999B12E3F6 /* SleepyJoe Watch App */,
 				732A671359CE2A15B520CB04 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		0794D176A3D7767EDA3174FA /* ML */ = {
+			isa = PBXGroup;
+			children = (
+				3730B53DFA72F49BA62F5457 /* anchor_samples.json */,
+				82B7467FE66D9C86A7C42460 /* BackgroundTrainingScheduler.swift */,
+				8F280645CEF7F8C3C6E31FEF /* FeatureExtractor.swift */,
+				4C81D553562CE228F46F695E /* MLReplayBuffer.swift */,
+				4CDC1749C436DE3DE6972F95 /* OnDeviceTrainer.swift */,
+				E519E4B084CBD59D7894DA9D /* SleepMLClassifier.swift */,
+				F2470E3C0495B64CF760AF73 /* SleepyClassifier.mlmodel */,
+			);
+			path = ML;
 			sourceTree = "<group>";
 		};
 		0A423C3BB27819999B12E3F6 /* SleepyJoe Watch App */ = {
@@ -59,6 +87,7 @@
 				409ECCFB7A001859DD6BFAB6 /* SettingsView.swift */,
 				E81333A1BC84F87FAFEE029F /* SleepyJoeApp.swift */,
 				BECE8985527AFB4CB6A6F6C1 /* Managers */,
+				0794D176A3D7767EDA3174FA /* ML */,
 				BBBCABDBCBCD714D24C68371 /* Models */,
 			);
 			path = "SleepyJoe Watch App";
@@ -151,6 +180,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2437C4CB30FC0102AA2B9DC6 /* Assets.xcassets in Resources */,
+				9AAF11E42357C81B630EB901 /* anchor_samples.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,15 +192,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				DAB4DBAE38A91D28A2D9991C /* AdaptiveLearningEngine.swift in Sources */,
+				C952A4898D8841D5F92B67AC /* BackgroundTrainingScheduler.swift in Sources */,
 				4CA36A32B9AAB08D0BBEF3E3 /* ContentView.swift in Sources */,
+				29E2DA0E5F09EA70DEA912F4 /* FeatureExtractor.swift in Sources */,
 				81ED3F760D7DABA782F09D59 /* HapticManager.swift in Sources */,
 				0933140D9DCC18CA3A8647EC /* HealthKitManager.swift in Sources */,
+				B13B198AC8F2E318D5C77C95 /* MLReplayBuffer.swift in Sources */,
 				29D070FAAEB7D4A44767D048 /* MotionManager.swift in Sources */,
+				F6B5E80B7297CDA34C7DC5FC /* OnDeviceTrainer.swift in Sources */,
 				EBDF34AA84879A2AAB429961 /* SessionManager.swift in Sources */,
 				F3B5BAE00679899C8F582252 /* SessionSettings.swift in Sources */,
 				175EEF709ABE5FF118423524 /* SessionView.swift in Sources */,
 				4EDCAD3CD067E51322728594 /* SettingsView.swift in Sources */,
 				7C1BE871FE035703C0103DE5 /* SleepDetectionEngine.swift in Sources */,
+				9889101C1AF6B3415F129AD2 /* SleepMLClassifier.swift in Sources */,
+				2FE7CC782EC888E4B2406993 /* SleepyClassifier.mlmodel in Sources */,
 				EC008DA84C4906AF7CEED69D /* SleepyJoeApp.swift in Sources */,
 				BA3A796DA89EB0E333B67934 /* TelemetryLogger.swift in Sources */,
 			);

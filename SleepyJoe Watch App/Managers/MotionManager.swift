@@ -38,11 +38,19 @@ final class MotionManager: ObservableObject {
     /// Recent motion delta history for telemetry windowing
     var motionDeltaHistory: [Double] { motionBuffer }
     
+    /// Raw acceleration X values for feature extraction
+    var rawAccelXHistory: [Float] { rawAccelX }
+    var rawAccelYHistory: [Float] { rawAccelY }
+    var rawAccelZHistory: [Float] { rawAccelZ }
+    
     // MARK: - Private Properties
     
     private let motionManager = CMMotionManager()
     private var motionBuffer: [Double] = []
     private var pitchBuffer: [Double] = []
+    private var rawAccelX: [Float] = []
+    private var rawAccelY: [Float] = []
+    private var rawAccelZ: [Float] = []
     private let bufferCapacity = 50 // 5 seconds at 10Hz
     private var stillnessStartTime: Date?
     private var settings: SessionSettings
@@ -65,6 +73,9 @@ final class MotionManager: ObservableObject {
     func startTracking() {
         motionBuffer.removeAll()
         pitchBuffer.removeAll()
+        rawAccelX.removeAll()
+        rawAccelY.removeAll()
+        rawAccelZ.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
         isStill = false
@@ -112,6 +123,9 @@ final class MotionManager: ObservableObject {
         pitchDegrees = 0
         motionBuffer.removeAll()
         pitchBuffer.removeAll()
+        rawAccelX.removeAll()
+        rawAccelY.removeAll()
+        rawAccelZ.removeAll()
         prevAcceleration = nil
         stillnessStartTime = nil
     }
@@ -167,6 +181,16 @@ final class MotionManager: ObservableObject {
         pitchBuffer.append(pitch)
         if pitchBuffer.count > bufferCapacity {
             pitchBuffer.removeFirst()
+        }
+        
+        rawAccelX.append(Float(x))
+        rawAccelY.append(Float(y))
+        rawAccelZ.append(Float(z))
+        
+        if rawAccelX.count > bufferCapacity {
+            rawAccelX.removeFirst()
+            rawAccelY.removeFirst()
+            rawAccelZ.removeFirst()
         }
         
         // Pitch drop / resting tilt detection:

@@ -3,7 +3,8 @@ import Combine
 import WatchKit
 
 /// Orchestrates the monitoring session by coordinating MotionManager, HealthKitManager,
-/// SleepDetectionEngine, AdaptiveLearningEngine, TelemetryLogger, and HapticManager.
+/// SleepDetectionEngine, AdaptiveLearningEngine, TelemetryLogger, HapticManager,
+/// and the on-device ML classifier pipeline (SleepMLClassifier, MLReplayBuffer, OnDeviceTrainer).
 /// Instantly cancels alarms upon high-energy waking motion (hand shake / arm posture reset) without artificial time delays.
 @MainActor
 final class SessionManager: ObservableObject {
@@ -40,6 +41,13 @@ final class SessionManager: ObservableObject {
     let telemetryLogger: TelemetryLogger
     let hapticManager: HapticManager
     
+    // MARK: - ML Pipeline Components
+    
+    let mlClassifier: SleepMLClassifier
+    let mlReplayBuffer: MLReplayBuffer
+    let onDeviceTrainer: OnDeviceTrainer
+    let backgroundTrainingScheduler: BackgroundTrainingScheduler
+    
     // MARK: - Private Properties
     
     private var sessionStartTime: Date?
@@ -53,6 +61,9 @@ final class SessionManager: ObservableObject {
     
     private var consecutiveAlerts: Int = 0
     
+    /// Cached anchor samples loaded once from bundle
+    private let anchorSamples: [LabeledFeatureVector]
+    
     // MARK: - Init
     
     init() {
@@ -64,12 +75,23 @@ final class SessionManager: ObservableObject {
         self.adaptiveEngine = AdaptiveLearningEngine()
         self.telemetryLogger = TelemetryLogger()
         self.hapticManager = HapticManager(settings: loadedSettings)
+        
+        // ML Pipeline
+        self.mlClassifier = SleepMLClassifier()
+        self.mlReplayBuffer = MLReplayBuffer()
+        self.onDeviceTrainer = OnDeviceTrainer()
+        self.backgroundTrainingScheduler = BackgroundTrainingScheduler()
+        self.anchorSamples = AnchorSampleLoader.loadAnchorSamples()
+        
+        // Schedule background consolidation training
+        backgroundTrainingScheduler.scheduleConsolidation()
     }
     
     // MARK: - Live Feedback Handler
     
     /// Submit live feedback (✓ True Positive vs ✕ False Alarm).
-    /// Records clean 5-second telemetry dataset sample, updates adaptive weights, and stops haptics.
+    /// Records clean 5-second telemetry dataset sample, updates adaptive weights,
+    /// extracts features for ML training, and triggers immediate on-device model update.
     func submitFeedback(wasTruePositive: Bool) {
         hapticManager.stopCurrentSequence()
         
@@ -89,10 +111,71 @@ final class SessionManager: ObservableObject {
             wasStillnessActive: sleepDetectionEngine.wasStillnessActive
         )
         
+        // ── ML Training Pipeline ──
+        // Extract features and add to replay buffer
+        let features = sleepDetectionEngine.lastExtractedFeatures
+        if features.count == 16 {
+            let mlLabel = wasTruePositive ? "sleep" : "awake"
+            mlReplayBuffer.addSample(label: mlLabel, features: features)
+            
+            // Trigger immediate on-device training (15 epochs, ~20ms, no UI lag)
+            triggerImmediateTraining()
+        }
+        
         WKInterfaceDevice.current().play(.click)
         
         feedbackDismissTask?.cancel()
         showFeedbackPrompt = false
+    }
+    
+    // MARK: - ML Training
+    
+    /// Runs a quick 15-epoch training cycle on the background queue (~20ms).
+    /// Combines anchor samples with user feedback buffer, duplicates sleep samples ×3.
+    private func triggerImmediateTraining() {
+        guard let modelURL = onDeviceTrainer.getCompiledModelURL() else {
+            print("[SessionManager] ML Training skipped — no compiled model found")
+            return
+        }
+        
+        let userSamples = mlReplayBuffer.allSamples()
+        guard !userSamples.isEmpty else { return }
+        
+        print("[SessionManager] Starting immediate ML training with \(userSamples.count) user + \(anchorSamples.count) anchor samples")
+        
+        onDeviceTrainer.train(
+            compiledModelURL: modelURL,
+            samples: userSamples,
+            anchorSamples: anchorSamples,
+            epochs: 15
+        ) { [weak self] success in
+            guard let self = self else { return }
+            if success {
+                print("[SessionManager] Immediate ML training completed — reloading model")
+                self.mlClassifier.reloadModel()
+            } else {
+                print("[SessionManager] Immediate ML training failed")
+            }
+        }
+    }
+    
+    // MARK: - Reset Learning
+    
+    /// Resets all adaptive learning: heuristic calibration offsets, ML replay buffer,
+    /// and user-trained model (reverts to factory bundle model).
+    func resetAllLearning() {
+        adaptiveEngine.resetCalibration()
+        mlReplayBuffer.clear()
+        
+        let fileManager = FileManager.default
+        if let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let trainedModelURL = docsURL.appendingPathComponent("SleepyClassifier.mlmodelc")
+            if fileManager.fileExists(atPath: trainedModelURL.path) {
+                try? fileManager.removeItem(at: trainedModelURL)
+            }
+        }
+        
+        mlClassifier.reloadModel()
     }
     
     // MARK: - Session Control
@@ -206,12 +289,13 @@ final class SessionManager: ObservableObject {
                     continue
                 }
                 
-                // Normal Monitoring Evaluation
+                // Normal Monitoring Evaluation (with ML ensemble)
                 self.sleepDetectionEngine.evaluate(
                     motionManager: self.motionManager,
                     healthKitManager: self.healthKitManager,
                     settings: self.settings,
-                    adaptiveEngine: self.adaptiveEngine
+                    adaptiveEngine: self.adaptiveEngine,
+                    mlClassifier: self.mlClassifier
                 )
                 
                 if self.sleepDetectionEngine.isSleepDetected {

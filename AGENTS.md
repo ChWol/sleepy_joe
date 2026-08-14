@@ -69,8 +69,49 @@ Da `TelemetryLogger` die rohen 5-Sekunden-Zeitreihen ($50 \text{ Steps} \times 4
 
 ---
 
-## 5. Machine Learning Pipeline Architecture (LSTM / CoreML)
+## 5. Implementierte On-Device ML Pipeline (CoreML Updatable MLP)
 
-1. **Daten-Aggregation**: Sammeln der echten 5s-JSON-Samples (`true_positive` vs. `false_positive`).
-2. **Offline-Validation auf dem Mac**: Testen verschiedener Klassifikatoren (Random Forest, TCN, LSTM) bezüglich F1-Score & Precision-Recall-Curve.
-3. **CoreML Export & On-Device Updating**: Konvertieren des besten Modells via `coremltools` in ein `.mlpackage` zur extrem stromsparenden Inference auf dem Apple Watch Neural Engine Chip (<1.5 ms).
+### A. Modell-Architektur
+- **Typ**: Updatable 2-Layer MLP (Multi-Layer Perceptron)
+- **Struktur**: Input(16) → Dense(16, ReLU) → Dense(2, Softmax)
+- **Parameter**: ~306 (fc1: 272 frozen, fc2: 34 updatable)
+- **Modellgröße**: < 50 KB (.mlmodelc)
+- **Inferenz-Latenz**: < 0.2 ms (Apple Neural Engine + CPU)
+- **Trainingszeit auf dem Gerät**: ~20 ms (15 Epochen)
+- **Klassen**: `["awake", "sleep"]`
+
+### B. 16-Feature-Vektor (vDSP-Extraktion aus 5s-Fenster)
+
+| # | Feature | Formel | Physiologische Bedeutung |
+|---|---------|--------|--------------------------|
+| 0–2 | Mean X/Y/Z | $\bar{x}, \bar{y}, \bar{z}$ | Schwerkraft-Orientierung |
+| 3–5 | Varianz X/Y/Z | $\sigma^2$ | **Mikro-Jitter vs. Muskelatonie** |
+| 6 | Total Jitter Varianz | $\frac{\sigma^2_x + \sigma^2_y + \sigma^2_z}{3}$ | **Kern-Schlafindikator** |
+| 7 | Signal Magnitude Area | $\frac{1}{N}\sum(\|x\|+\|y\|+\|z\|)$ | Kinetische Gesamtenergie |
+| 8–10 | Peak-to-Peak X/Y/Z | $\max - \min$ | Handschütteln / Arm-Ruck |
+| 11 | Mean Pitch | $\bar{\theta}$ | Durchschn. Handgelenkswinkel |
+| 12 | Pitch Delta | $\theta_{50} - \theta_{1}$ | **Arm-Absacken** |
+| 13 | Pitch Varianz | $\sigma^2_\theta$ | Haltungsstabilität |
+| 14 | Zero Crossing Rate | $\frac{\text{ZCR}}{N}$ | Frequenz-Proxy (bewusstes Zucken) |
+| 15 | Peak Energy | $\max(x)^2 + \max(y)^2 + \max(z)^2$ | Burst-Energie |
+
+### C. Anti-Catastrophic-Forgetting: Anchor-Samples
+- **20 unveränderliche Gold-Standard-Samples** im App-Bundle (`anchor_samples.json`)
+- 10 × "awake" (realistische Mikro-Korrekturen), 10 × "sleep" (Muskelatonie)
+- Bei jedem Training: $\text{Batch} = \text{Anchors (20)} + \text{User-Buffer (bis 100)}$
+- "sleep"-Samples werden ×3 dupliziert gegen Klassen-Ungleichgewicht
+
+### D. Training-Trigger
+1. **Sofort (Foreground)**: Bei jedem `✓`/`✕` Tap → 15 Epochen (~20 ms, `.utility` QoS)
+2. **Konsolidierung (Laden)**: `WKApplicationRefreshBackgroundTask` wenn Uhr lädt & Akku > 50% → 50 Epochen
+3. **Replay-Buffer**: Ring-Buffer mit max. 100 gelabelten Feature-Vektoren auf Disk
+
+### E. Ensemble-Erkennung
+$$\text{totalConfidence} = \max(\text{ruleConfidence}, \text{mlConfidence})$$
+- Alarm wird ausgelöst, wenn **entweder** Rule-Engine **oder** ML-Modell den Schwellenwert überschreitet
+- Graceful Degradation: ML-Modell ist optional; Rule-Engine funktioniert immer als Fallback
+
+### F. Zukünftige Verbesserungen
+1. **Offline-Validation auf dem Mac**: Random Forest, TCN, LSTM auf gesammelten Telemetrie-Daten benchmarken
+2. **iPhone-Companion-Offloading**: Telemetrie via `WCSession.transferFile()` an iPhone für tiefere Analyse
+3. **Frequenz-Features (FFT)**: PSD-Bänder als zusätzliche Features für v2 des Feature-Vektors
