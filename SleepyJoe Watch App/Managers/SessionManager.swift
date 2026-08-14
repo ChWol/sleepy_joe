@@ -288,7 +288,7 @@ final class SessionManager: ObservableObject {
                         self.consecutiveAlerts = 0
                         self.state = .monitoring
                         self.startGracePeriod(seconds: 10)
-                        self.startFeedbackPrompt(seconds: 30)
+                        self.startFeedbackPrompt(seconds: 5)
                     }
                     continue
                 }
@@ -325,7 +325,7 @@ final class SessionManager: ObservableObject {
         consecutiveAlerts += 1
         
         // Show feedback buttons IMMEDIATELY upon alerting!
-        startFeedbackPrompt(seconds: 30)
+        startFeedbackPrompt(seconds: 5)
         
         switch consecutiveAlerts {
         case 1:
@@ -344,7 +344,7 @@ final class SessionManager: ObservableObject {
                 self.consecutiveAlerts = 0
                 self.state = .monitoring
                 self.startGracePeriod(seconds: 10)
-                self.startFeedbackPrompt(seconds: 30)
+                self.startFeedbackPrompt(seconds: 5)
             }
         }
     }
