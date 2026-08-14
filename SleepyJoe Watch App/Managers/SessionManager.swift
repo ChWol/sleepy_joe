@@ -32,6 +32,9 @@ final class SessionManager: ObservableObject {
     /// Whether the 10-second Refractory Grace Period is active after returning to Active
     @Published var isGracePeriodActive: Bool = false
     
+    /// Temporary confirmation state when user manually logs a sleep onset by tapping the gauge
+    @Published var manualLogConfirmed: Bool = false
+    
     // MARK: - Child Managers
     
     let motionManager: MotionManager
@@ -56,6 +59,7 @@ final class SessionManager: ObservableObject {
     private var randomPingTask: Task<Void, Never>?
     private var feedbackDismissTask: Task<Void, Never>?
     private var gracePeriodTask: Task<Void, Never>?
+    private var manualLogResetTask: Task<Void, Never>?
     private var nextPingTime: Date?
     private var pingCountdownTimer: Timer?
     
@@ -85,6 +89,70 @@ final class SessionManager: ObservableObject {
         
         // Schedule background consolidation training
         backgroundTrainingScheduler.scheduleConsolidation()
+    }
+    
+    // MARK: - Manual Sleep Onset Logging
+    
+    /// Proactively logs an unflagged sleep onset / nodding off event directly (e.g. tapping the center gauge).
+    /// Captures the current 5-second sensor window, extracts 16 features, saves a true_positive sample,
+    /// updates adaptive weights, and triggers immediate on-device ML retraining.
+    func logManualSleepOnset() {
+        guard state == .monitoring || state == .warning else { return }
+        
+        let accelX = motionManager.rawAccelXHistory
+        let accelY = motionManager.rawAccelYHistory
+        let accelZ = motionManager.rawAccelZHistory
+        let pitchHistory = motionManager.pitchDegreesHistory.map { Float($0) }
+        
+        // 1. Record clean 5s telemetry dataset sample
+        telemetryLogger.recordSample(
+            label: "true_positive",
+            pitchBuffer: motionManager.pitchDegreesHistory,
+            motionBuffer: motionManager.motionDeltaHistory,
+            heartRate: healthKitManager.currentHeartRate,
+            hrDrop: healthKitManager.heartRateDropPercentage
+        )
+        
+        // 2. Register True Positive in Adaptive Engine (reinforces sleep sensitivity)
+        adaptiveEngine.registerFeedbackPattern(
+            wasTruePositive: true,
+            wasHRActive: healthKitManager.heartRateDropPercentage >= 0.04,
+            wasPitchActive: motionManager.isPitchDropDetected,
+            wasStillnessActive: motionManager.isStill
+        )
+        
+        // 3. Extract 16 features & train ML model
+        let features: [Float]
+        if accelX.count >= 10 {
+            features = FeatureExtractor.extractFeatures(
+                x: accelX,
+                y: accelY,
+                z: accelZ,
+                pitch: pitchHistory
+            )
+        } else {
+            features = sleepDetectionEngine.lastExtractedFeatures
+        }
+        
+        if features.count == 16 {
+            mlReplayBuffer.addSample(label: "sleep", features: features)
+            triggerImmediateTraining()
+        }
+        
+        // 4. Positive tactile confirmation & UI feedback
+        WKInterfaceDevice.current().play(.success)
+        
+        manualLogConfirmed = true
+        manualLogResetTask?.cancel()
+        manualLogResetTask = Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if !Task.isCancelled {
+                self.manualLogConfirmed = false
+            }
+        }
+        
+        // 5. Short grace period
+        startGracePeriod(seconds: 3)
     }
     
     // MARK: - Live Feedback Handler

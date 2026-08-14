@@ -31,30 +31,45 @@ struct SessionView: View {
                 Spacer()
             }
             
-            // Center: Minimalist Ambient Status Gauge
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .stroke(statusColor.opacity(0.25), lineWidth: 2)
-                        .frame(width: 60, height: 60)
-                        .scaleEffect(isPulsing ? 1.15 : 1.0)
-                        .opacity(isPulsing ? 0.3 : 0.7)
+            // Center: Minimalist Ambient Status Gauge / Tap to Log Microsleep
+            Button {
+                guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
+                triggerFeedbackAnimation(color: .green)
+                sessionManager.logManualSleepOnset()
+            } label: {
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .stroke(statusColor.opacity(0.25), lineWidth: 2)
+                            .frame(width: 62, height: 62)
+                            .scaleEffect(isPulsing ? 1.15 : 1.0)
+                            .opacity(isPulsing ? 0.3 : 0.7)
+                        
+                        Circle()
+                            .stroke(statusColor.opacity(0.5), lineWidth: 1.5)
+                            .frame(width: 44, height: 44)
+                        
+                        if sessionManager.manualLogConfirmed {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.green)
+                                .transition(.scale.combined(with: .opacity))
+                        } else {
+                            Circle()
+                                .fill(feedbackAnimationColor ?? statusColor)
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(feedbackAnimationColor != nil ? 1.8 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: feedbackAnimationColor)
+                        }
+                    }
+                    .contentShape(Circle())
                     
-                    Circle()
-                        .stroke(statusColor.opacity(0.5), lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                    
-                    Circle()
-                        .fill(feedbackAnimationColor ?? statusColor)
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(feedbackAnimationColor != nil ? 1.8 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: feedbackAnimationColor)
+                    Text(statusText)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(sessionManager.manualLogConfirmed ? .green : (sessionManager.state == .alerting ? .orange : .white.opacity(0.4)))
                 }
-                
-                Text(statusText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(sessionManager.state == .alerting ? .orange : .white.opacity(0.4))
             }
+            .buttonStyle(.plain)
             
             // Bottom: Live Discreet Feedback Bar (Shown immediately upon alerting AND during feedback window)
             if (sessionManager.showFeedbackPrompt || sessionManager.state == .alerting) && sessionManager.settings.useAutoSensitivity {
@@ -101,6 +116,9 @@ struct SessionView: View {
     }
     
     private var statusText: String {
+        if sessionManager.manualLogConfirmed {
+            return "Logged Sleep ✓"
+        }
         if sessionManager.state == .alerting {
             return "Wake Up!"
         }
@@ -114,6 +132,9 @@ struct SessionView: View {
     }
     
     private var statusColor: Color {
+        if sessionManager.manualLogConfirmed {
+            return .green
+        }
         if sessionManager.isGracePeriodActive {
             return .blue.opacity(0.6)
         }
