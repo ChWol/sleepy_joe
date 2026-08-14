@@ -122,6 +122,13 @@ final class SessionManager: ObservableObject {
             triggerImmediateTraining()
         }
         
+        // If feedback was tapped while actively alerting, return to monitoring cleanly
+        if state == .alerting {
+            consecutiveAlerts = 0
+            state = .monitoring
+            startGracePeriod(seconds: 10)
+        }
+        
         WKInterfaceDevice.current().play(.click)
         
         feedbackDismissTask?.cancel()
@@ -203,10 +210,7 @@ final class SessionManager: ObservableObject {
         
         if settings.enableMotionDetection {
             motionManager.startTracking()
-            Task {
-                let _ = await healthKitManager.requestAuthorization()
-                healthKitManager.startMonitoring()
-            }
+            healthKitManager.startMonitoring()
         }
         
         startMonitoringLoop()
@@ -284,7 +288,7 @@ final class SessionManager: ObservableObject {
                         self.consecutiveAlerts = 0
                         self.state = .monitoring
                         self.startGracePeriod(seconds: 10)
-                        self.startFeedbackPrompt(seconds: 5)
+                        self.startFeedbackPrompt(seconds: 30)
                     }
                     continue
                 }
@@ -320,6 +324,9 @@ final class SessionManager: ObservableObject {
         alertCount += 1
         consecutiveAlerts += 1
         
+        // Show feedback buttons IMMEDIATELY upon alerting!
+        startFeedbackPrompt(seconds: 30)
+        
         switch consecutiveAlerts {
         case 1:
             hapticManager.playWake()
@@ -337,7 +344,7 @@ final class SessionManager: ObservableObject {
                 self.consecutiveAlerts = 0
                 self.state = .monitoring
                 self.startGracePeriod(seconds: 10)
-                self.startFeedbackPrompt(seconds: 5)
+                self.startFeedbackPrompt(seconds: 30)
             }
         }
     }

@@ -51,27 +51,27 @@ struct SessionView: View {
                         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: feedbackAnimationColor)
                 }
                 
-                Text(sessionManager.isGracePeriodActive ? "Grace Period" : "Focus Active")
+                Text(statusText)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(sessionManager.state == .alerting ? .orange : .white.opacity(0.4))
             }
             
-            // Bottom: Live Discreet Feedback Bar (Only shown if Auto-Sensitivity is active)
-            if sessionManager.showFeedbackPrompt && sessionManager.settings.useAutoSensitivity {
+            // Bottom: Live Discreet Feedback Bar (Shown immediately upon alerting AND during feedback window)
+            if (sessionManager.showFeedbackPrompt || sessionManager.state == .alerting) && sessionManager.settings.useAutoSensitivity {
                 VStack {
                     Spacer()
                     
-                    HStack(spacing: 18) {
+                    HStack(spacing: 20) {
                         // True Positive (✓ Echtes Einnicken)
                         Button {
                             triggerFeedbackAnimation(color: .green)
                             sessionManager.submitFeedback(wasTruePositive: true)
                         } label: {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.85))
-                                .frame(width: 34, height: 34)
-                                .background(Color.white.opacity(0.15), in: Circle())
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .frame(width: 38, height: 38)
+                                .background(Color.white.opacity(0.18), in: Circle())
                         }
                         .buttonStyle(.plain)
                         
@@ -81,15 +81,15 @@ struct SessionView: View {
                             sessionManager.submitFeedback(wasTruePositive: false)
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.85))
-                                .frame(width: 34, height: 34)
-                                .background(Color.white.opacity(0.15), in: Circle())
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .frame(width: 38, height: 38)
+                                .background(Color.white.opacity(0.18), in: Circle())
                         }
                         .buttonStyle(.plain)
                     }
                     .padding(.bottom, 6)
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
         }
@@ -98,6 +98,19 @@ struct SessionView: View {
                 isPulsing = true
             }
         }
+    }
+    
+    private var statusText: String {
+        if sessionManager.state == .alerting {
+            return "Einnicken erkannt"
+        }
+        if sessionManager.isGracePeriodActive {
+            return "Grace Period"
+        }
+        if sessionManager.state == .warning {
+            return "Prüfe..."
+        }
+        return "Focus Active"
     }
     
     private var statusColor: Color {

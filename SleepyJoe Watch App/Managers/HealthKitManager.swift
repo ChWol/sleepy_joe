@@ -23,6 +23,15 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     private var hrHistory: [Double] = []
     private let maxHistorySamples = 60
     
+    // MARK: - Init
+    
+    override init() {
+        super.init()
+        Task {
+            let _ = await requestAuthorization()
+        }
+    }
+    
     // MARK: - Authorization
     
     func requestAuthorization() async -> Bool {
@@ -55,22 +64,28 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
         configuration.locationType = .indoor
         
         do {
-            session = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
-            builder = session?.associatedWorkoutBuilder()
+            let newSession = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
+            let newBuilder = newSession.associatedWorkoutBuilder()
             
-            session?.delegate = self
-            builder?.delegate = self
-            builder?.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+            self.session = newSession
+            self.builder = newBuilder
             
-            session?.startActivity(with: Date())
-            builder?.beginCollection(withStart: Date()) { [weak self] success, error in
+            newSession.delegate = self
+            newBuilder.delegate = self
+            newBuilder.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+            
+            // Prepare hardware sensors for instant background execution
+            newSession.prepare()
+            newSession.startActivity(with: Date())
+            
+            newBuilder.beginCollection(withStart: Date()) { [weak self] success, error in
                 guard let self = self, success else {
                     print("[HealthKitManager] Failed to begin collection: \(error?.localizedDescription ?? "unknown")")
                     return
                 }
                 Task { @MainActor in
                     self.isMonitoring = true
-                    print("[HealthKitManager] Started continuous Heart Rate monitoring")
+                    print("[HealthKitManager] Started continuous Heart Rate monitoring & background session")
                 }
             }
         } catch {
