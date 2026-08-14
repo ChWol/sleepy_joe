@@ -93,15 +93,13 @@ final class MotionManager: ObservableObject {
         isSimulatorMode = false
         motionManager.deviceMotionUpdateInterval = 0.1 // 10Hz
         
-        motionManager.startDeviceMotionUpdates(to: OperationQueue()) { [weak self] motion, error in
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
             guard let self = self, let motion = motion else { return }
             
             let pitch = motion.attitude.pitch * (180.0 / .pi) // Convert radians to degrees
             let acc = motion.userAcceleration
             
-            Task { @MainActor in
-                self.processMotion(x: acc.x, y: acc.y, z: acc.z, pitch: pitch)
-            }
+            self.processMotion(x: acc.x, y: acc.y, z: acc.z, pitch: pitch)
         }
         
         isTracking = true

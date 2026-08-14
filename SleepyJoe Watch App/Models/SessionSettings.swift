@@ -11,9 +11,9 @@ enum HapticStrength: Int, Codable, CaseIterable, Identifiable {
     
     var label: String {
         switch self {
-        case .gentle: return "Sanft"
-        case .medium: return "Mittel"
-        case .strong: return "Stark"
+        case .gentle: return "Gentle"
+        case .medium: return "Medium"
+        case .strong: return "Strong"
         }
     }
     

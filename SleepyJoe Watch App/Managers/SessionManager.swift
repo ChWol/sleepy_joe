@@ -126,7 +126,7 @@ final class SessionManager: ObservableObject {
         if state == .alerting {
             consecutiveAlerts = 0
             state = .monitoring
-            startGracePeriod(seconds: 10)
+            startGracePeriod(seconds: 3)
         }
         
         WKInterfaceDevice.current().play(.click)
@@ -287,7 +287,7 @@ final class SessionManager: ObservableObject {
                         self.hapticManager.stopCurrentSequence()
                         self.consecutiveAlerts = 0
                         self.state = .monitoring
-                        self.startGracePeriod(seconds: 10)
+                        self.startGracePeriod(seconds: 3)
                         self.startFeedbackPrompt(seconds: 5)
                     }
                     continue

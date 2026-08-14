@@ -27,6 +27,7 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         INFOPLIST_FILE: "SleepyJoe Watch App/Info.plist"
         GENERATE_INFOPLIST_FILE: true
+        CODE_SIGN_ENTITLEMENTS: "SleepyJoe Watch App/SleepyJoe.entitlements"
         INFOPLIST_KEY_WKApplication: true
         INFOPLIST_KEY_WKWatchOnly: true
         INFOPLIST_KEY_WKBackgroundModes:

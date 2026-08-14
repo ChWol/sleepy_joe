@@ -102,13 +102,13 @@ struct SessionView: View {
     
     private var statusText: String {
         if sessionManager.state == .alerting {
-            return "Einnicken erkannt"
+            return "Wake Up!"
         }
         if sessionManager.isGracePeriodActive {
             return "Grace Period"
         }
         if sessionManager.state == .warning {
-            return "Prüfe..."
+            return "Checking..."
         }
         return "Focus Active"
     }

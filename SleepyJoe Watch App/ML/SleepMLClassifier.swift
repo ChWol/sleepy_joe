@@ -50,7 +50,7 @@ class SleepMLClassifier: ObservableObject {
         }
         
         do {
-            let multiArray = try MLMultiArray(shape: [1, 16], dataType: .float32)
+            let multiArray = try MLMultiArray(shape: [16], dataType: .float32)
             for (index, value) in features.enumerated() {
                 multiArray[index] = NSNumber(value: value)
             }

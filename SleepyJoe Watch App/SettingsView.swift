@@ -29,38 +29,38 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 1. Haptik / Intensität (Top)
-                Section("Intensität (Haptik)") {
-                    Picker("Stärke", selection: $hapticStrength) {
+                // 1. Haptic Intensity (Top)
+                Section("Haptic Intensity") {
+                    Picker("Strength", selection: $hapticStrength) {
                         ForEach(HapticStrength.allCases) { strength in
                             Text(strength.label).tag(strength)
                         }
                     }
                 }
                 
-                // 2. Zufalls-Pings
-                Section("Zufalls-Pings") {
-                    Toggle("Aktiv", isOn: $enablePings)
+                // 2. Random Pings
+                Section("Random Pings") {
+                    Toggle("Enabled", isOn: $enablePings)
                     
                     if enablePings {
-                        Picker("Intervall", selection: $pingInterval) {
-                            Text("1 Min").tag(1)
-                            Text("5 Min").tag(5)
-                            Text("10 Min").tag(10)
-                            Text("15 Min").tag(15)
-                            Text("20 Min").tag(20)
+                        Picker("Interval", selection: $pingInterval) {
+                            Text("1 min").tag(1)
+                            Text("5 min").tag(5)
+                            Text("10 min").tag(10)
+                            Text("15 min").tag(15)
+                            Text("20 min").tag(20)
                         }
                     }
                 }
                 
-                // 3. Empfindlichkeit (Auto vs Manuell)
-                Section("Empfindlichkeit") {
-                    Toggle("Auto (Gelernt)", isOn: $useAutoSensitivity)
+                // 3. Sensitivity (Auto vs Manual)
+                Section("Sensitivity") {
+                    Toggle("Auto (Learned)", isOn: $useAutoSensitivity)
                     
                     if !useAutoSensitivity {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("Stufe")
+                                Text("Level")
                                 Spacer()
                                 Text("\(Int(sensitivity))")
                                     .foregroundStyle(.secondary)
@@ -70,38 +70,38 @@ struct SettingsView: View {
                     }
                 }
                 
-                // 4. Gelerntes Profil (Only visible if Auto-Sensitivity is active)
+                // 4. Learned Profile (Only visible if Auto-Sensitivity is active)
                 if useAutoSensitivity {
-                    Section("Gelerntes Profil") {
+                    Section("Learned Profile") {
                         HStack {
-                            Text("Genauigkeit")
+                            Text("Precision")
                             Spacer()
                             Text("\(sessionManager.adaptiveEngine.precisionPercentage)%")
                                 .foregroundStyle(.secondary)
                         }
                         
                         HStack {
-                            Text("Anpassung")
+                            Text("Calibration")
                             Spacer()
                             Text(String(format: "%+.1fs", sessionManager.adaptiveEngine.personalStillnessOffset))
                                 .foregroundStyle(.secondary)
                         }
                         
                         HStack {
-                            Text("Datensätze")
+                            Text("Saved Samples")
                             Spacer()
                             Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
                                 .foregroundStyle(.secondary)
                         }
                         
-                        Button("Lernen zurücksetzen") {
+                        Button("Reset Calibration") {
                             showResetConfirmation = true
                         }
                         .foregroundStyle(.red.opacity(0.8))
                     }
                 }
             }
-            .navigationTitle("Optionen")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -114,16 +114,16 @@ struct SettingsView: View {
                 }
             }
             .confirmationDialog(
-                "Lernen zurücksetzen?",
+                "Reset Calibration?",
                 isPresented: $showResetConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Wirklich zurücksetzen", role: .destructive) {
+                Button("Reset All Learning", role: .destructive) {
                     sessionManager.resetAllLearning()
                 }
-                Button("Abbrechen", role: .cancel) {}
+                Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Alle gelernten Anpassungen und Treffer-Daten werden unwiderruflich gelöscht.")
+                Text("All personalized model weights and training samples will be permanently cleared.")
             }
             .onChange(of: useAutoSensitivity) { _, _ in applySettings() }
             .onChange(of: sensitivity) { _, _ in applySettings() }
