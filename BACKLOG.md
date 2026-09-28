@@ -30,7 +30,7 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 
 ### P1 — Improve detection quality and response time
 
-- [ ] **Replace the single averaged movement score with robust short and long windows.** Preserve brief corrective movements, sustained stillness, signal quality, and sampling gaps separately so a five-second average cannot hide a transition.
+- [x] ~~**Replace the single averaged movement score with robust short and long windows.**~~ MotionManager now keeps a one-second movement estimate, a five-second estimate, the latest sample delta for immediate wake gestures, and sample timestamps; the detector rejects stale samples. Further tuning waits for labeled watch data.
 - [ ] **Review posture features in device coordinates.** Current pitch comes from attitude pitch and a fixed relative drop heuristic. Check wrist orientation differences and arm positions; use calibrated baseline, angular velocity, and gravity orientation where they improve repeatability.
 - [ ] **Review pulse freshness and baseline logic.** Confirm the trend is relative to a suitable personal seated baseline, bound the age of samples, and test missing/noisy pulse. Never let a stale pulse value silently support an alarm.
 - [x] ~~**Rework feedback adaptation to match the product rule.**~~ A false-alarm label now records the count without globally changing timing or sensor weights. Similar examples are handled by the three-example personal pattern veto; confirmed positives retain their cautious sensitivity adjustment.
@@ -50,8 +50,8 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 
 - [x] ~~**Review telemetry purpose, fields, retention, and deletion.**~~ Settings explains feedback capture, offers deletion, and notes a 1,000-window cap. Sensor windows, diagnostics, and replay examples are excluded from device backups.
 - [x] ~~**Align HealthKit permission copy and workout lifecycle with actual behavior.**~~ Removed workout read/write authorization and the inaccurate update-purpose text. The app explains heart-rate reading and discards its background workout session. Physical device behavior still needs validation.
-- [ ] **Run a privacy and permission review.** Verify no sensor payload leaves the watch, inspect app entitlements and HealthKit types, and document behavior when permissions are declined or revoked.
-- [ ] **Create a real-watch validation protocol.** Include quiet desk work, reading/listening, varied arm/wrist positions, walking, fatigue/drowsiness reports, missing pulse, charging, background use, and battery. Where feasible, compare event labels with a stronger reference such as PSG; consumer wearable papers show motion plus pulse can help, but performance depends on validation conditions: [de Zambotti et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC7355403/).
+- [x] ~~**Run a privacy and permission review.**~~ Source review found no network transfer APIs; sensor/replay files are local and excluded from backups. HealthKit requests read access to heart rate only, and unavailable data falls back to motion-only mode.
+- [x] ~~**Create a real-watch validation protocol.**~~ Added [REAL_WATCH_VALIDATION.md](REAL_WATCH_VALIDATION.md) with session blocks, label guidance, per-person metrics, battery comparison, and a held-out evaluation plan.
 - [ ] **Set release criteria before calling detection reliable.** Agree on acceptable false alarms per hour, minimum event sensitivity, latency target, battery budget, and required participant diversity based on collected evidence.
 - [ ] **Reassess the product claim and intended use.** Keep Focus positioned as an attention aid unless the evidence and applicable review support stronger claims.
 
@@ -61,5 +61,6 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 - Initial research supports a cautious design: wrist immobility alone can classify quiet wake as sleep, and background workout sessions provide runtime but require explicit lifecycle and battery validation.
 - Implemented in this pass: replay evaluator, no global negative-feedback threshold changes, lower-profile active UI, a local data deletion action, and heart-rate permission copy aligned with the discarded workout lifecycle.
 - Follow-up implementation: opt-in bounded decision traces, a fix for a late HealthKit authorization callback after session stop, and exclusion of saved sensor material from backups.
+- The code review found separate short/long movement windows were already present; the backlog now records them as complete. The current detector still needs labeled data to tune their thresholds.
 - Still requiring device/data access: replay evaluation on representative labeled data, real-watch lifecycle and battery checks, false-alarm/latency tuning, and validation across people and contexts.
 - Last reviewed: 2026-09-28.
