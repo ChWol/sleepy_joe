@@ -81,6 +81,14 @@ struct LabeledFeatureVector {
         precondition(!PersonalPatternMatcher.isKnownAwake(features, samples: negatives + [positive]),
                      "a confirmed positive protects a similar pattern")
 
+        var invalidFeatures = features
+        invalidFeatures[3] = .nan
+        let invalidNegative = LabeledFeatureVector(label: "awake", features: invalidFeatures)
+        precondition(!PersonalPatternMatcher.isKnownAwake(features, samples: [negatives[0], negatives[1], invalidNegative]),
+                     "invalid feature samples must not count toward a false-alarm veto")
+        precondition(!PersonalPatternMatcher.isKnownAwake(invalidFeatures, samples: negatives),
+                     "non-finite live features must not activate a false-alarm veto")
+
         engine.reset()
         evaluate(50, samples: negatives)
         evaluate(55, samples: negatives)

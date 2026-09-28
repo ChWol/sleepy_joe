@@ -43,4 +43,12 @@ Use `tools/evaluate_sensor_replays.swift` for timestamped 10 Hz replay streams a
 
 ## Decision log
 
-Before making a release claim, agree on acceptable false-alert rate, minimum event sensitivity, latency, battery cost, and participant/context coverage. Those limits are intentionally unset until the team sees representative data and decides what tradeoff is acceptable. Preserve a held-out set for the final evaluation.
+Use these as provisional internal release gates for an attention aid, not clinical cutoffs:
+
+- False alerts: at most 0.1 per monitored hour overall, and at most 0.2 per hour in any predefined awake condition.
+- Self-reported drowsiness events: at least 80% get an alert within 30 seconds overall; report every participant separately so pooled results cannot hide a poor fit.
+- Alert latency: median at most 10 seconds and 90th percentile at most 30 seconds for detected events.
+- Battery: complete an eight-hour active session with at least 20% charge remaining on each tested watch model.
+- Coverage: at least 15 participants, three watch models/sizes, 100 awake monitoring hours, and 30 labeled drowsiness events before any public reliability claim. Use participant-separated tuning and held-out evaluation.
+
+These are product targets chosen to reflect the requested low false-alarm rate and quick response; they are not established medical standards. If the data cannot meet them, keep the feature experimental and report the measured tradeoff rather than loosening a metric after seeing the held-out results. Preserve the held-out set for final evaluation.

@@ -31,20 +31,20 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 ### P1 — Improve detection quality and response time
 
 - [x] ~~**Replace the single averaged movement score with robust short and long windows.**~~ MotionManager now keeps a one-second movement estimate, a five-second estimate, the latest sample delta for immediate wake gestures, and sample timestamps; the detector rejects stale samples. Further tuning waits for labeled watch data.
-- [ ] **Review posture features in device coordinates.** Current pitch comes from attitude pitch and a fixed relative drop heuristic. Check wrist orientation differences and arm positions; use calibrated baseline, angular velocity, and gravity orientation where they improve repeatability.
-- [ ] **Review pulse freshness and baseline logic.** Confirm the trend is relative to a suitable personal seated baseline, bound the age of samples, and test missing/noisy pulse. Never let a stale pulse value silently support an alarm.
+- [x] ~~**Review posture features in device coordinates.**~~ Code review confirmed the detector uses pitch change over a rolling window rather than a static angle as sleep evidence. Added a note that Core Motion attitude pitch is reference-frame relative. Wrist orientation coverage still needs the physical-watch protocol.
+- [x] ~~**Review pulse freshness and baseline logic.**~~ The baseline uses the first three valid samples and slow adaptation; samples must be 30–220 bpm, distinct, and under 20 seconds old by HealthKit’s sample timestamp. Missing/stale pulse falls back to motion-only evidence. Device behavior remains in the watch validation block.
 - [x] ~~**Rework feedback adaptation to match the product rule.**~~ A false-alarm label now records the count without globally changing timing or sensor weights. Similar examples are handled by the three-example personal pattern veto; confirmed positives retain their cautious sensitivity adjustment.
-- [ ] **Audit personal-pattern distance and sample handling.** Check feature scaling, duplicates, missing/invalid values, class counts, stale examples, and persistence limits. Keep labels tied to the frozen pre-alarm window; never train on wake-up motion.
+- [x] ~~**Audit personal-pattern distance and sample handling.**~~ Named the feature scales and match radii, added finite/shape/label checks, confirmed 3 awake matches and positive-example protection, and retained 40 sleep / 60 awake class limits inside a 100-example cap. Similarity radii remain heuristics for the labeled-data threshold evaluation below. Examples do not expire automatically; users can reset them. No age cutoff was chosen without evidence.
 - [ ] **Tune thresholds only against labeled replay and watch sessions.** Compare sensitivity, false alarms per hour, and detection latency across people and contexts. Do not select a setting from overall accuracy alone when positives are rare.
-- [ ] **Add an explicit calibration flow.** Collect a short quiet-awake baseline in typical use posture, explain what it does, allow skip/reset, and keep calibration from claiming it can detect sleep by itself.
+- [ ] **Add a personal calibration flow after its signal is validated.** The UI is buildable, but applying a quiet-awake baseline to the motion threshold without labeled positive and awake sessions could make detection slower or less reliable. First measure this approach in the replay/watch study; then build the flow with skip and reset controls if it improves the held-out tradeoff.
 
 ### P2 — Make the watch experience discreet and polished
 
 - [x] ~~**Redesign the active screen as a neutral focus/watch face.**~~ Removed the explanatory start-screen subtitle and visible manual logging instruction; manual event logging now uses a long press or an accessible VoiceOver action.
 - [x] ~~**Polish alert and feedback UI.**~~ Feedback controls now use icons with accessible labels, and the alert copy is “Check in”; five-second post-wake feedback remains in place.
-- [ ] **Review haptic patterns on device.** Confirm the repeating sequence is supported, perceptible, and stoppable at the next sensor event. Offer an escalating but bounded pattern, and make intensity/preferences clear. A “continuous” loop is necessarily a sequence of discrete haptic calls.
+- [ ] **Validate haptic patterns on device.** Code now steps gentle and medium preferences through bounded pattern levels and stops on wake or feedback. Confirm perceptibility, watchOS behavior, comfort, and stoppage timing on physical watches. A continuous alarm is a repeated sequence of discrete calls.
 - [x] ~~**Simplify Settings and copy.**~~ Renamed adaptive sensitivity in plain language and explained that feedback-driven heuristics are not a sleep diagnosis. Learned counts are shown as counts rather than an accuracy percentage.
-- [ ] **Finish accessibility and presentation pass.** Check Dynamic Type where applicable, VoiceOver actions, contrast, localization, small watch sizes, icon, and screenshots.
+- [ ] **Finish on-device accessibility and presentation pass.** Code uses scalable text styles, stronger status contrast, labeled controls, and a VoiceOver missed-event action. Check actual Dynamic Type sizes, contrast, localization, small watch layouts, icon, and screenshots on device.
 
 ### P3 — Privacy, release readiness, and research
 
@@ -52,8 +52,8 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 - [x] ~~**Align HealthKit permission copy and workout lifecycle with actual behavior.**~~ Removed workout read/write authorization and the inaccurate update-purpose text. The app explains heart-rate reading and discards its background workout session. Physical device behavior still needs validation.
 - [x] ~~**Run a privacy and permission review.**~~ Source review found no network transfer APIs; sensor/replay files are local and excluded from backups. HealthKit requests read access to heart rate only, and unavailable data falls back to motion-only mode.
 - [x] ~~**Create a real-watch validation protocol.**~~ Added [REAL_WATCH_VALIDATION.md](REAL_WATCH_VALIDATION.md) with session blocks, label guidance, per-person metrics, battery comparison, and a held-out evaluation plan.
-- [ ] **Set release criteria before calling detection reliable.** Agree on acceptable false alarms per hour, minimum event sensitivity, latency target, battery budget, and required participant diversity based on collected evidence.
-- [ ] **Reassess the product claim and intended use.** Keep Focus positioned as an attention aid unless the evidence and applicable review support stronger claims.
+- [x] ~~**Set provisional release criteria.**~~ Added explicit internal targets and minimum participant/event coverage to `REAL_WATCH_VALIDATION.md`. They are product goals, not medical standards, and must be checked against held-out data.
+- [x] ~~**Reassess the product claim and intended use.**~~ Settings and validation materials describe Focus as an attention aid and state that wrist motion and pulse cannot confirm sleep.
 
 ## Notes and decisions
 
@@ -62,6 +62,8 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 - Implemented in this pass: replay evaluator, no global negative-feedback threshold changes, lower-profile active UI, a local data deletion action, and heart-rate permission copy aligned with the discarded workout lifecycle.
 - Follow-up implementation: opt-in bounded decision traces, a fix for a late HealthKit authorization callback after session stop, and exclusion of saved sensor material from backups.
 - A source-level lifecycle audit is complete; physical watch behavior under workout interruption and background haptics remains unverified.
+- Code reviews now cover posture and pulse handling. HealthKit freshness uses the timestamp returned for its latest sample ([Apple HealthKit documentation](https://developer.apple.com/documentation/healthkit/hkstatistics/mostrecentquantitydateinterval())). An internal release-gate proposal is documented.
+- The only open work is gated by physical watches or representative participant-labeled data: background/battery and haptic validation, on-device accessibility/layout checks, threshold and pattern-radius evaluation, and evidence for any calibration flow.
 - The code review found separate short/long movement windows were already present; the backlog now records them as complete. The current detector still needs labeled data to tune their thresholds.
 - Still requiring device/data access: replay evaluation on representative labeled data, real-watch lifecycle and battery checks, false-alarm/latency tuning, and validation across people and contexts.
 - Last reviewed: 2026-09-28.

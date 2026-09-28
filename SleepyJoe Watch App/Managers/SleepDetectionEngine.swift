@@ -137,20 +137,34 @@ final class SleepDetectionEngine: ObservableObject {
 
 /// Conservative few-shot memory of labeled false alarms.
 enum PersonalPatternMatcher {
+    // Heuristic radii/scales; keep conservative until representative labeled
+    // watch data supports a person-separated validation.
+    private static let minimumAwakeMatches = 3
+    private static let awakeMatchRadius: Float = 0.75
+    private static let confirmedSleepProtectionRadius: Float = 0.9
+    private static let dimensions: [(Int, Float)] = [
+        (3, 0.003), (4, 0.003), (5, 0.003), (7, 0.04),
+        (8, 0.08), (9, 0.08), (10, 0.08), (11, 25),
+        (12, 12), (13, 30), (14, 0.15), (15, 0.02)
+    ]
+
     static func isKnownAwake(_ features: [Float], samples: [LabeledFeatureVector]) -> Bool {
-        guard features.count == 16 else { return false }
-        let closeAwake = samples.filter { $0.label == "awake" && distance(features, $0.features) < 0.75 }
-        guard closeAwake.count >= 3 else { return false }
-        return !samples.contains { $0.label == "sleep" && distance(features, $0.features) < 0.9 }
+        guard features.count == 16, features.allSatisfy(\.isFinite) else { return false }
+        let validSamples = samples.filter {
+            ($0.label == "awake" || $0.label == "sleep") &&
+            $0.features.count == 16 && $0.features.allSatisfy(\.isFinite)
+        }
+        let closeAwake = validSamples.filter {
+            $0.label == "awake" && distance(features, $0.features) < awakeMatchRadius
+        }
+        guard closeAwake.count >= minimumAwakeMatches else { return false }
+        return !validSamples.contains {
+            $0.label == "sleep" && distance(features, $0.features) < confirmedSleepProtectionRadius
+        }
     }
 
     private static func distance(_ a: [Float], _ b: [Float]) -> Float {
         guard b.count == 16 else { return .infinity }
-        let dimensions: [(Int, Float)] = [
-            (3, 0.003), (4, 0.003), (5, 0.003), (7, 0.04),
-            (8, 0.08), (9, 0.08), (10, 0.08), (11, 25),
-            (12, 12), (13, 30), (14, 0.15), (15, 0.02)
-        ]
         let squared = dimensions.reduce(Float(0)) { sum, item in
             let difference = (a[item.0] - b[item.0]) / item.1
             return sum + difference * difference

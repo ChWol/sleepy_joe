@@ -100,6 +100,9 @@ struct SettingsView: View {
                 }
 
                 Section("Your Data") {
+                    Text("Focus is an attention aid. Wrist motion and heart rate can suggest drowsiness, but cannot confirm sleep.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     Text("Sensor windows are saved on this watch when you submit alert feedback or log a missed event. They help recognize similar personal patterns and are capped at 1,000 windows.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

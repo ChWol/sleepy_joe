@@ -47,6 +47,9 @@ class MLReplayBuffer: ObservableObject {
         
         // Preserve scarce confirmed positives when the user reports many false
         // alarms. Keep enough negatives to represent several desk postures.
+        // Keep scarce positives while bounding negative examples to varied
+        // awake contexts. PersonalPatternMatcher uses only explicitly labeled
+        // entries; this buffer does not train the experimental CoreML model.
         let classLimit = label == "sleep" ? 40 : 60
         if entries.filter({ $0.label == label }).count > classLimit,
            let oldestSameClass = entries.firstIndex(where: { $0.label == label }) {
@@ -70,7 +73,8 @@ class MLReplayBuffer: ObservableObject {
             // Reassign to published property
             let valid = decoded.filter {
                 ($0.label == "sleep" || $0.label == "awake") &&
-                $0.features.count == 16 && $0.features.allSatisfy(\.isFinite)
+                $0.features.count == 16 && $0.features.allSatisfy(\.isFinite) &&
+                $0.timestamp <= Date()
             }
             let positives = valid.filter { $0.label == "sleep" }.suffix(40)
             let negatives = valid.filter { $0.label == "awake" }.suffix(60)

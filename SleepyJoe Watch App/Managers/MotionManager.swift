@@ -124,7 +124,10 @@ final class MotionManager: ObservableObject {
                 return
             }
             
-            let pitch = motion.attitude.pitch * (180.0 / .pi) // Convert radians to degrees
+            // Attitude pitch is relative to Core Motion's reference frame. We
+            // use changes within this session's rolling window, never an
+            // absolute angle as standalone sleep evidence.
+            let pitch = motion.attitude.pitch * (180.0 / .pi)
             let acc = motion.userAcceleration
             
             self.processMotion(x: acc.x, y: acc.y, z: acc.z, pitch: pitch)

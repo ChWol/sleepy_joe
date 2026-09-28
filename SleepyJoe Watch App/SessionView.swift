@@ -19,22 +19,20 @@ struct SessionView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.45))
+                            .foregroundStyle(.white.opacity(0.65))
                             .frame(width: 36, height: 36)
                             .background(Color.white.opacity(0.14), in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("End focus session")
                     .padding(.top, 34)
                     .padding(.trailing, 10)
                 }
                 Spacer()
             }
             
-            // Center: Minimalist Ambient Status Gauge / Tap to Log Microsleep
-            Button {
-                // Manual event logging is intentionally a deliberate long press.
-            } label: {
-                VStack(spacing: 10) {
+            // Center: ambient status with a discreet long-press action.
+            VStack(spacing: 10) {
                     ZStack {
                         Circle()
                             .stroke(statusColor.opacity(0.25), lineWidth: 2)
@@ -62,25 +60,26 @@ struct SessionView: View {
                     .contentShape(Circle())
                     
                     Text(statusText)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(sessionManager.manualLogConfirmed ? .green : (sessionManager.state == .alerting ? .orange : .white.opacity(0.4)))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(sessionManager.manualLogConfirmed ? .green : (sessionManager.state == .alerting ? .orange : .white.opacity(0.68)))
                     if sessionManager.hasCheckedHealthKitAuthorization && !sessionManager.isHeartRateAvailable && sessionManager.state != .alerting {
                         Text("Motion only")
-                            .font(.system(size: 8, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.3))
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.55))
                     }
                 }
-            }
             .simultaneousGesture(LongPressGesture(minimumDuration: 0.8).onEnded { _ in
                 guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
                 if sessionManager.logManualSleepOnset() {
                     triggerFeedbackAnimation(color: .green)
                 }
             })
-            .buttonStyle(.plain)
-            .accessibilityLabel("Log missed drowsiness alert")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Focus status")
+            .accessibilityValue(statusText)
             .accessibilityHint("Long press to record a missed event")
-            .accessibilityAction(named: Text("Log missed drowsiness")) {
+            .accessibilityAction(named: Text("Log a missed event")) {
+                guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
                 if sessionManager.logManualSleepOnset() {
                     triggerFeedbackAnimation(color: .green)
                 }

@@ -131,12 +131,15 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     
     // MARK: - Processing
     
-    private func processNewHeartRate(_ hr: Double) {
+    private func processNewHeartRate(_ hr: Double, sampleDate: Date) {
         guard hr > 30 && hr < 220 else { return }
         guard session != nil else { return }
+        let sampleAge = Date().timeIntervalSince(sampleDate)
+        guard sampleAge >= 0, sampleAge < 20 else { return }
+        if let lastHeartRateSampleDate, sampleDate <= lastHeartRateSampleDate { return }
         
         currentHeartRate = hr
-        lastHeartRateSampleDate = Date()
+        lastHeartRateSampleDate = sampleDate
         hrHistory.append(hr)
         if hrHistory.count > maxHistorySamples { hrHistory.removeFirst() }
         
@@ -156,7 +159,7 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
             let drop = max(0, (baselineHeartRate - currentHeartRate) / baselineHeartRate)
             heartRateDropPercentage = drop
             if drop >= 0.05 && previousDrop < 0.05 {
-                heartRateDropStartedAt = Date()
+                heartRateDropStartedAt = sampleDate
             } else if drop < 0.05 {
                 heartRateDropStartedAt = nil
             }
@@ -174,10 +177,12 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
         if let statistics = workoutBuilder.statistics(for: heartRateType) {
             let unit = HKUnit.count().unitDivided(by: .minute())
             let value = statistics.mostRecentQuantity()?.doubleValue(for: unit) ?? 0.0
+            let sampleDate = statistics.mostRecentQuantityDateInterval()?.end
             
             Task { @MainActor in
                 guard self.builder === workoutBuilder else { return }
-                self.processNewHeartRate(value)
+                guard let sampleDate else { return }
+                self.processNewHeartRate(value, sampleDate: sampleDate)
             }
         }
     }

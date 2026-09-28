@@ -85,13 +85,18 @@ final class HapticManager: ObservableObject {
             while !Task.isCancelled {
                 cycle += 1
 
-                if settings.hapticStrength == .gentle {
+                // Begin softly and step through the moderate pattern before
+                // reaching a bounded maximum pattern if the user has not woken.
+                if settings.hapticStrength == .gentle && cycle <= 4 {
                     WKInterfaceDevice.current().play(.directionUp)
                     try? await Task.sleep(nanoseconds: 850_000_000)
                     continue
                 }
 
-                if settings.hapticStrength == .strong || escalated || cycle > 2 {
+                let useMaximumPattern = settings.hapticStrength == .strong || escalated ||
+                    (settings.hapticStrength == .medium && cycle > 3) ||
+                    (settings.hapticStrength == .gentle && cycle > 7)
+                if useMaximumPattern {
                     // Escalated high-intensity bursts
                     for _ in 0..<4 {
                         guard !Task.isCancelled else { break }
