@@ -29,7 +29,7 @@ class BackgroundTrainingScheduler {
     /// Schedule a background refresh task for 1 hour from now
     func scheduleConsolidation() {
         let nextFireDate = Date().addingTimeInterval(3600)
-        WKExtension.shared().scheduleBackgroundRefresh(
+        WKApplication.shared().scheduleBackgroundRefresh(
             withPreferredDate: nextFireDate,
             userInfo: nil
         ) { error in

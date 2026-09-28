@@ -1,33 +1,42 @@
 import Foundation
 
-/// Telemetry sample representing a 5-second multivariate sensor window
-/// retroactively captured and labeled upon user feedback.
+/// Sensor window frozen when the alarm was triggered and labeled upon feedback.
 struct TelemetrySample: Codable, Identifiable {
     let id: UUID
     let timestamp: Date
     let label: String // "true_positive" (✓) or "false_positive" (✕)
     let sampleRateHz: Int // 10Hz
     let windowDurationSeconds: Double // 5.0s
-    let pitchDegrees: [Double] // 50 timesteps
-    let movementDeltas: [Double] // 50 timesteps
+    let pitchDegrees: [Double]
+    let movementDeltas: [Double]
+    let accelerationX: [Float]?
+    let accelerationY: [Float]?
+    let accelerationZ: [Float]?
     let heartRate: Double
     let heartRateDropPercentage: Double
     
     init(
         label: String,
+        timestamp: Date,
         pitchBuffer: [Double],
         motionBuffer: [Double],
+        accelerationX: [Float],
+        accelerationY: [Float],
+        accelerationZ: [Float],
         heartRate: Double,
         hrDrop: Double
     ) {
         self.id = UUID()
-        self.timestamp = Date()
+        self.timestamp = timestamp
         self.label = label
         self.sampleRateHz = 10
-        self.windowDurationSeconds = 5.0
-        // Capture last 50 timesteps (5 seconds)
+        self.windowDurationSeconds = Double(min(50, pitchBuffer.count)) / 10.0
+        // Capture the most recent complete window available at the alert.
         self.pitchDegrees = Array(pitchBuffer.suffix(50))
         self.movementDeltas = Array(motionBuffer.suffix(50))
+        self.accelerationX = Array(accelerationX.suffix(50))
+        self.accelerationY = Array(accelerationY.suffix(50))
+        self.accelerationZ = Array(accelerationZ.suffix(50))
         self.heartRate = heartRate
         self.heartRateDropPercentage = hrDrop
     }
@@ -49,23 +58,31 @@ final class TelemetryLogger: ObservableObject {
         updateSampleCount()
     }
     
-    /// Save a clean 5-second retroactively labeled sample upon ✓ or ✕ tap
+    /// Save an alert-time window when the user explicitly labels the event.
     func recordSample(
         label: String,
+        timestamp: Date,
         pitchBuffer: [Double],
         motionBuffer: [Double],
+        accelerationX: [Float],
+        accelerationY: [Float],
+        accelerationZ: [Float],
         heartRate: Double,
         hrDrop: Double
     ) {
         let sample = TelemetrySample(
             label: label,
+            timestamp: timestamp,
             pitchBuffer: pitchBuffer,
             motionBuffer: motionBuffer,
+            accelerationX: accelerationX,
+            accelerationY: accelerationY,
+            accelerationZ: accelerationZ,
             heartRate: heartRate,
             hrDrop: hrDrop
         )
         
-        let filename = "sample_\(Int(sample.timestamp.timeIntervalSince1970))_\(sample.label).json"
+        let filename = "sample_\(sample.id.uuidString).json"
         let fileURL = telemetryFolder.appendingPathComponent(filename)
         
         let encoder = JSONEncoder()
@@ -73,9 +90,12 @@ final class TelemetryLogger: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         
         if let data = try? encoder.encode(sample) {
-            try? data.write(to: fileURL)
-            updateSampleCount()
-            print("💾 [TelemetryLogger] Saved 5s clean sample (\(sample.label)) to \(filename). Total: \(totalSavedSamples)")
+            do {
+                try data.write(to: fileURL, options: .atomic)
+                totalSavedSamples += 1
+            } catch {
+                print("[TelemetryLogger] Could not save sample: \(error)")
+            }
         }
     }
     

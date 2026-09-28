@@ -28,6 +28,7 @@ final class HapticManager: ObservableObject {
     // MARK: - Private Properties
     
     private var hapticTask: Task<Void, Never>?
+    private var sequenceID = UUID()
     private var settings: SessionSettings
     
     private let gentleTypes: [WKHapticType] = [.click, .directionUp]
@@ -52,7 +53,9 @@ final class HapticManager: ObservableObject {
         currentLevel = .nudge
         print("🔔 [HapticManager] Triggered Gentle Nudge Ping")
         
+        let id = sequenceID
         hapticTask = Task {
+            guard !Task.isCancelled, sequenceID == id else { return }
             isPlaying = true
             let taps = settings.hapticStrength == .gentle ? 1 : 2
             for _ in 0..<taps {
@@ -63,7 +66,7 @@ final class HapticManager: ObservableObject {
                 let delay = Double.random(in: 0.3...0.8)
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
-            isPlaying = false
+            if sequenceID == id { isPlaying = false }
         }
     }
     
@@ -73,14 +76,22 @@ final class HapticManager: ObservableObject {
         currentLevel = escalated ? .alarm : .wake
         print("🚨 [HapticManager] Started Continuous Looping Alarm (escalated: \(escalated))")
         
+        let id = sequenceID
         hapticTask = Task {
+            guard !Task.isCancelled, sequenceID == id else { return }
             isPlaying = true
             var cycle = 0
             
             while !Task.isCancelled {
                 cycle += 1
-                
-                if escalated || cycle > 2 {
+
+                if settings.hapticStrength == .gentle {
+                    WKInterfaceDevice.current().play(.directionUp)
+                    try? await Task.sleep(nanoseconds: 850_000_000)
+                    continue
+                }
+
+                if settings.hapticStrength == .strong || escalated || cycle > 2 {
                     // Escalated high-intensity bursts
                     for _ in 0..<4 {
                         guard !Task.isCancelled else { break }
@@ -88,11 +99,13 @@ final class HapticManager: ObservableObject {
                         WKInterfaceDevice.current().play(type)
                         let delay = Double.random(in: 0.12...0.25)
                         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                        guard !Task.isCancelled else { break }
                     }
                     
                     guard !Task.isCancelled else { break }
                     WKInterfaceDevice.current().play(.directionUp)
                     try? await Task.sleep(nanoseconds: 100_000_000)
+                    guard !Task.isCancelled else { break }
                     WKInterfaceDevice.current().play(.notification)
                 } else {
                     // Moderate wake bursts
@@ -112,7 +125,7 @@ final class HapticManager: ObservableObject {
                 try? await Task.sleep(nanoseconds: UInt64(gap * 1_000_000_000))
             }
             
-            isPlaying = false
+            if sequenceID == id { isPlaying = false }
         }
     }
     
@@ -132,7 +145,9 @@ final class HapticManager: ObservableObject {
         stopCurrentSequence()
         print("⚡ [HapticManager] Playing Sample for Strength: \(strength.label)")
         
+        let id = sequenceID
         hapticTask = Task {
+            guard !Task.isCancelled, sequenceID == id else { return }
             isPlaying = true
             switch strength {
             case .gentle:
@@ -147,16 +162,19 @@ final class HapticManager: ObservableObject {
                 // Stark: Eine dreifache, ausgeprägte Vibrations-Kaskade
                 WKInterfaceDevice.current().play(.notification)
                 try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
                 WKInterfaceDevice.current().play(.retry)
                 try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
                 WKInterfaceDevice.current().play(.directionDown)
             }
-            isPlaying = false
+            if sequenceID == id { isPlaying = false }
         }
     }
     
     /// Immediately stop any playing haptic sequence
     func stopCurrentSequence() {
+        sequenceID = UUID()
         hapticTask?.cancel()
         hapticTask = nil
         isPlaying = false
@@ -170,6 +188,7 @@ final class HapticManager: ObservableObject {
             let type = moderateTypes.randomElement() ?? .notification
             WKInterfaceDevice.current().play(type)
             try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
             WKInterfaceDevice.current().play(type)
             
             let gap = Double.random(in: 0.6...1.2)
@@ -196,6 +215,7 @@ final class HapticManager: ObservableObject {
                 let type = moderateTypes.randomElement() ?? .retry
                 WKInterfaceDevice.current().play(type)
                 try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
             }
             let gap = Double.random(in: 0.8...1.5)
             try? await Task.sleep(nanoseconds: UInt64(gap * 1_000_000_000))

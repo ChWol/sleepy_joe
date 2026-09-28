@@ -9,19 +9,24 @@ final class MotionManager: ObservableObject {
     // MARK: - Published State
     
     /// Current movement intensity (0.0 = perfectly still, higher = more motion)
-    @Published var movementScore: Double = 0.0
+    private(set) var movementScore: Double = 0.0
+    /// One-second motion estimate; the five-second score reacts too slowly to a wake gesture.
+    private(set) var recentMovementScore: Double = 0.0
+    private(set) var latestMovementDelta: Double = 0.0
+    private(set) var lastSampleDate: Date?
+    var onWakeGesture: (() -> Void)?
     
     /// Current wrist pitch angle in degrees (-90° to +90°)
-    @Published var pitchDegrees: Double = 0.0
+    private(set) var pitchDegrees: Double = 0.0
     
     /// Whether a posture drop or resting tilt (arm sagging or angled down) was detected
-    @Published var isPitchDropDetected: Bool = false
+    private(set) var isPitchDropDetected: Bool = false
     
     /// Whether the user is currently considered "still" (below threshold)
-    @Published var isStill: Bool = false
+    private(set) var isStill: Bool = false
     
     /// How long the user has been continuously still (seconds)
-    @Published var stillDuration: TimeInterval = 0
+    private(set) var stillDuration: TimeInterval = 0
     
     /// Whether motion tracking is active
     @Published var isTracking: Bool = false
@@ -57,6 +62,9 @@ final class MotionManager: ObservableObject {
     
     private var prevAcceleration: (x: Double, y: Double, z: Double)?
     private var simulatorTimer: Timer?
+    private var previousPitch: Double?
+    private var pitchDropUntil: Date?
+    private var pitchResetUntil: Date?
     
     // MARK: - Init
     
@@ -82,11 +90,22 @@ final class MotionManager: ObservableObject {
         isPitchDropDetected = false
         stillDuration = 0
         movementScore = 0
+        recentMovementScore = 0
+        latestMovementDelta = 0
+        lastSampleDate = nil
+        previousPitch = nil
+        pitchDropUntil = nil
+        pitchResetUntil = nil
         pitchDegrees = 0
         
         guard motionManager.isDeviceMotionAvailable else {
-            print("[MotionManager] Hardware DeviceMotion unavailable -> Entering Simulator Mode")
+            #if targetEnvironment(simulator)
+            print("[MotionManager] Simulator motion unavailable; using test data")
             startSimulatorTracking()
+            #else
+            print("[MotionManager] Device motion unavailable; automatic detection paused")
+            isTracking = false
+            #endif
             return
         }
         
@@ -94,7 +113,16 @@ final class MotionManager: ObservableObject {
         motionManager.deviceMotionUpdateInterval = 0.1 // 10Hz
         
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
-            guard let self = self, let motion = motion else { return }
+            guard let self = self else { return }
+            guard let motion = motion else {
+                if let error {
+                    print("[MotionManager] Motion updates stopped: \(error)")
+                    self.motionManager.stopDeviceMotionUpdates()
+                    self.isTracking = false
+                    self.lastSampleDate = nil
+                }
+                return
+            }
             
             let pitch = motion.attitude.pitch * (180.0 / .pi) // Convert radians to degrees
             let acc = motion.userAcceleration
@@ -118,6 +146,12 @@ final class MotionManager: ObservableObject {
         isPitchDropDetected = false
         stillDuration = 0
         movementScore = 0
+        recentMovementScore = 0
+        latestMovementDelta = 0
+        lastSampleDate = nil
+        previousPitch = nil
+        pitchDropUntil = nil
+        pitchResetUntil = nil
         pitchDegrees = 0
         motionBuffer.removeAll()
         pitchBuffer.removeAll()
@@ -174,6 +208,9 @@ final class MotionManager: ObservableObject {
     // MARK: - Private Processing
     
     private func processMotion(x: Double, y: Double, z: Double, pitch: Double) {
+        let pitchRise = pitch - (previousPitch ?? pitch)
+        previousPitch = pitch
+        lastSampleDate = Date()
         pitchDegrees = pitch
         
         pitchBuffer.append(pitch)
@@ -201,8 +238,16 @@ final class MotionManager: ObservableObject {
             relativeDrop = (initialPitch - currentPitchAverage) > 12.0
         }
         
-        let hangingArm = pitch < -60.0
-        isPitchDropDetected = forceSimulatedStillness || relativeDrop || hangingArm
+        // A fixed downward wrist is common at a desk. Only a recent change in
+        // posture is evidence, held briefly so the stillness gate can catch up.
+        if pitchRise > 8 {
+            pitchDropUntil = nil
+            pitchResetUntil = Date().addingTimeInterval(5)
+        }
+        if relativeDrop && (pitchResetUntil.map { $0 < Date() } ?? true) {
+            pitchDropUntil = Date().addingTimeInterval(8)
+        }
+        isPitchDropDetected = forceSimulatedStillness || (pitchDropUntil.map { $0 > Date() } ?? false)
         
         // Acceleration Delta
         let delta: Double
@@ -215,6 +260,13 @@ final class MotionManager: ObservableObject {
             delta = 0
         }
         prevAcceleration = (x, y, z)
+        latestMovementDelta = delta
+
+        // A deliberate shake or arm raise ends an active alarm on this sensor update.
+        // SessionManager decides whether an alarm is active; ordinary monitoring is unaffected.
+        if delta > 0.40 || (delta > 0.20 && pitchRise > 8.0) {
+            onWakeGesture?()
+        }
         
         motionBuffer.append(delta)
         if motionBuffer.count > bufferCapacity {
@@ -225,9 +277,10 @@ final class MotionManager: ObservableObject {
         
         let averageDelta = motionBuffer.reduce(0, +) / Double(motionBuffer.count)
         movementScore = averageDelta
+        recentMovementScore = motionBuffer.suffix(10).reduce(0, +) / Double(min(10, motionBuffer.count))
         
         let wasStill = isStill
-        let currentlyStill = forceSimulatedStillness || (averageDelta < settings.stillnessThreshold)
+        let currentlyStill = forceSimulatedStillness || (recentMovementScore < settings.stillnessThreshold)
         
         if currentlyStill {
             if !wasStill {

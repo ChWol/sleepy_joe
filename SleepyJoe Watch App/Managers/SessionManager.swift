@@ -4,7 +4,7 @@ import WatchKit
 
 /// Orchestrates the monitoring session by coordinating MotionManager, HealthKitManager,
 /// SleepDetectionEngine, AdaptiveLearningEngine, TelemetryLogger, HapticManager,
-/// and the on-device ML classifier pipeline (SleepMLClassifier, MLReplayBuffer, OnDeviceTrainer).
+/// and the small buffer of explicitly labeled personal patterns.
 /// Instantly cancels alarms upon high-energy waking motion (hand shake / arm posture reset) without artificial time delays.
 @MainActor
 final class SessionManager: ObservableObject {
@@ -24,6 +24,7 @@ final class SessionManager: ObservableObject {
     @Published var elapsedTime: TimeInterval = 0
     @Published var alertCount: Int = 0
     @Published var nextPingIn: TimeInterval = 0
+    @Published var isMotionAvailable: Bool = true
     @Published var settings: SessionSettings
     
     /// Controls whether the 5-second discreet live feedback bar (✓/✕) is shown after returning to Active
@@ -44,12 +45,8 @@ final class SessionManager: ObservableObject {
     let telemetryLogger: TelemetryLogger
     let hapticManager: HapticManager
     
-    // MARK: - ML Pipeline Components
-    
-    let mlClassifier: SleepMLClassifier
+    // Confirmed user patterns are used directly for conservative few-shot learning.
     let mlReplayBuffer: MLReplayBuffer
-    let onDeviceTrainer: OnDeviceTrainer
-    let backgroundTrainingScheduler: BackgroundTrainingScheduler
     
     // MARK: - Private Properties
     
@@ -63,10 +60,21 @@ final class SessionManager: ObservableObject {
     private var nextPingTime: Date?
     private var pingCountdownTimer: Timer?
     
-    private var consecutiveAlerts: Int = 0
-    
-    /// Cached anchor samples loaded once from bundle
-    private let anchorSamples: [LabeledFeatureVector]
+    private struct DetectionSnapshot {
+        let capturedAt: Date
+        let pitch: [Double]
+        let motion: [Double]
+        let x: [Float]
+        let y: [Float]
+        let z: [Float]
+        let heartRate: Double
+        let hrDrop: Double
+        let features: [Float]
+        let wasHRActive: Bool
+        let wasPitchActive: Bool
+        let wasStillnessActive: Bool
+    }
+    private var feedbackSnapshot: DetectionSnapshot?
     
     // MARK: - Init
     
@@ -80,66 +88,29 @@ final class SessionManager: ObservableObject {
         self.telemetryLogger = TelemetryLogger()
         self.hapticManager = HapticManager(settings: loadedSettings)
         
-        // ML Pipeline
-        self.mlClassifier = SleepMLClassifier()
         self.mlReplayBuffer = MLReplayBuffer()
-        self.onDeviceTrainer = OnDeviceTrainer()
-        self.backgroundTrainingScheduler = BackgroundTrainingScheduler()
-        self.anchorSamples = AnchorSampleLoader.loadAnchorSamples()
-        
-        // Schedule background consolidation training
-        backgroundTrainingScheduler.scheduleConsolidation()
     }
     
     // MARK: - Manual Sleep Onset Logging
     
     /// Proactively logs an unflagged sleep onset / nodding off event directly (e.g. tapping the center gauge).
-    /// Captures the current 5-second sensor window, extracts 16 features, saves a true_positive sample,
-    /// updates adaptive weights, and triggers immediate on-device ML retraining.
-    func logManualSleepOnset() {
-        guard state == .monitoring || state == .warning else { return }
-        
-        let accelX = motionManager.rawAccelXHistory
-        let accelY = motionManager.rawAccelYHistory
-        let accelZ = motionManager.rawAccelZHistory
-        let pitchHistory = motionManager.pitchDegreesHistory.map { Float($0) }
-        
-        // 1. Record clean 5s telemetry dataset sample
-        telemetryLogger.recordSample(
-            label: "true_positive",
-            pitchBuffer: motionManager.pitchDegreesHistory,
-            motionBuffer: motionManager.motionDeltaHistory,
-            heartRate: healthKitManager.currentHeartRate,
-            hrDrop: healthKitManager.heartRateDropPercentage
-        )
-        
-        // 2. Register True Positive in Adaptive Engine (reinforces sleep sensitivity)
+    /// Captures a missed event when the user explicitly reports drowsiness.
+    @discardableResult
+    func logManualSleepOnset() -> Bool {
+        guard (state == .monitoring || state == .warning),
+              !isGracePeriodActive, !showFeedbackPrompt,
+              let snapshot = captureSnapshot() else { return false }
+
+        recordTelemetry(snapshot, label: "missed_alert")
         adaptiveEngine.registerFeedbackPattern(
             wasTruePositive: true,
-            wasHRActive: healthKitManager.heartRateDropPercentage >= 0.04,
-            wasPitchActive: motionManager.isPitchDropDetected,
-            wasStillnessActive: motionManager.isStill
+            wasHRActive: snapshot.wasHRActive,
+            wasPitchActive: snapshot.wasPitchActive,
+            wasStillnessActive: snapshot.wasStillnessActive
         )
-        
-        // 3. Extract 16 features & train ML model
-        let features: [Float]
-        if accelX.count >= 10 {
-            features = FeatureExtractor.extractFeatures(
-                x: accelX,
-                y: accelY,
-                z: accelZ,
-                pitch: pitchHistory
-            )
-        } else {
-            features = sleepDetectionEngine.lastExtractedFeatures
+        if snapshot.x.count == 50 {
+            mlReplayBuffer.addSample(label: "sleep", features: snapshot.features)
         }
-        
-        if features.count == 16 {
-            mlReplayBuffer.addSample(label: "sleep", features: features)
-            triggerImmediateTraining()
-        }
-        
-        // 4. Positive tactile confirmation & UI feedback
         WKInterfaceDevice.current().play(.success)
         
         manualLogConfirmed = true
@@ -151,50 +122,36 @@ final class SessionManager: ObservableObject {
             }
         }
         
-        // 5. Short grace period
-        startGracePeriod(seconds: 3)
+        startGracePeriod(seconds: 10)
+        return true
     }
     
     // MARK: - Live Feedback Handler
     
     /// Submit live feedback (✓ True Positive vs ✕ False Alarm).
-    /// Records clean 5-second telemetry dataset sample, updates adaptive weights,
-    /// extracts features for ML training, and triggers immediate on-device model update.
+    /// Labels the sensor window captured before the alarm and wake gesture.
     func submitFeedback(wasTruePositive: Bool) {
+        guard showFeedbackPrompt, let snapshot = feedbackSnapshot else { return }
+        feedbackSnapshot = nil
         hapticManager.stopCurrentSequence()
         
         let labelString = wasTruePositive ? "true_positive" : "false_positive"
-        telemetryLogger.recordSample(
-            label: labelString,
-            pitchBuffer: motionManager.pitchDegreesHistory,
-            motionBuffer: motionManager.motionDeltaHistory,
-            heartRate: healthKitManager.currentHeartRate,
-            hrDrop: healthKitManager.heartRateDropPercentage
-        )
+        recordTelemetry(snapshot, label: labelString)
         
         adaptiveEngine.registerFeedbackPattern(
             wasTruePositive: wasTruePositive,
-            wasHRActive: sleepDetectionEngine.wasHRActive,
-            wasPitchActive: sleepDetectionEngine.wasPitchActive,
-            wasStillnessActive: sleepDetectionEngine.wasStillnessActive
+            wasHRActive: snapshot.wasHRActive,
+            wasPitchActive: snapshot.wasPitchActive,
+            wasStillnessActive: snapshot.wasStillnessActive
         )
-        
-        // ── ML Training Pipeline ──
-        // Extract features and add to replay buffer
-        let features = sleepDetectionEngine.lastExtractedFeatures
-        if features.count == 16 {
-            let mlLabel = wasTruePositive ? "sleep" : "awake"
-            mlReplayBuffer.addSample(label: mlLabel, features: features)
-            
-            // Trigger immediate on-device training (15 epochs, ~20ms, no UI lag)
-            triggerImmediateTraining()
+        if snapshot.x.count == 50 {
+            mlReplayBuffer.addSample(label: wasTruePositive ? "sleep" : "awake", features: snapshot.features)
         }
         
         // If feedback was tapped while actively alerting, return to monitoring cleanly
         if state == .alerting {
-            consecutiveAlerts = 0
             state = .monitoring
-            startGracePeriod(seconds: 3)
+            startGracePeriod(seconds: 10)
         }
         
         WKInterfaceDevice.current().play(.click)
@@ -203,35 +160,40 @@ final class SessionManager: ObservableObject {
         showFeedbackPrompt = false
     }
     
-    // MARK: - ML Training
-    
-    /// Runs a quick 15-epoch training cycle on the background queue (~20ms).
-    /// Combines anchor samples with user feedback buffer, duplicates sleep samples ×3.
-    private func triggerImmediateTraining() {
-        guard let modelURL = onDeviceTrainer.getCompiledModelURL() else {
-            print("[SessionManager] ML Training skipped — no compiled model found")
-            return
-        }
-        
-        let userSamples = mlReplayBuffer.allSamples()
-        guard !userSamples.isEmpty else { return }
-        
-        print("[SessionManager] Starting immediate ML training with \(userSamples.count) user + \(anchorSamples.count) anchor samples")
-        
-        onDeviceTrainer.train(
-            compiledModelURL: modelURL,
-            samples: userSamples,
-            anchorSamples: anchorSamples,
-            epochs: 15
-        ) { [weak self] success in
-            guard let self = self else { return }
-            if success {
-                print("[SessionManager] Immediate ML training completed — reloading model")
-                self.mlClassifier.reloadModel()
-            } else {
-                print("[SessionManager] Immediate ML training failed")
-            }
-        }
+    private func captureSnapshot() -> DetectionSnapshot? {
+        guard let lastSample = motionManager.lastSampleDate,
+              Date().timeIntervalSince(lastSample) < 1,
+              motionManager.rawAccelXHistory.count >= 30 else { return nil }
+        let x = motionManager.rawAccelXHistory
+        let y = motionManager.rawAccelYHistory
+        let z = motionManager.rawAccelZHistory
+        let pitch = motionManager.pitchDegreesHistory
+        return DetectionSnapshot(
+            capturedAt: lastSample,
+            pitch: pitch,
+            motion: motionManager.motionDeltaHistory,
+            x: x, y: y, z: z,
+            heartRate: healthKitManager.hasFreshHeartRate ? healthKitManager.currentHeartRate : 0,
+            hrDrop: healthKitManager.hasFreshHeartRate ? healthKitManager.heartRateDropPercentage : 0,
+            features: FeatureExtractor.extractFeatures(x: x, y: y, z: z, pitch: pitch.map(Float.init)),
+            wasHRActive: sleepDetectionEngine.wasHRActive,
+            wasPitchActive: sleepDetectionEngine.wasPitchActive,
+            wasStillnessActive: sleepDetectionEngine.wasStillnessActive
+        )
+    }
+
+    private func recordTelemetry(_ snapshot: DetectionSnapshot, label: String) {
+        telemetryLogger.recordSample(
+            label: label,
+            timestamp: snapshot.capturedAt,
+            pitchBuffer: snapshot.pitch,
+            motionBuffer: snapshot.motion,
+            accelerationX: snapshot.x,
+            accelerationY: snapshot.y,
+            accelerationZ: snapshot.z,
+            heartRate: snapshot.heartRate,
+            hrDrop: snapshot.hrDrop
+        )
     }
     
     // MARK: - Reset Learning
@@ -241,6 +203,7 @@ final class SessionManager: ObservableObject {
     func resetAllLearning() {
         adaptiveEngine.resetCalibration()
         mlReplayBuffer.clear()
+        telemetryLogger.clearTelemetry()
         
         let fileManager = FileManager.default
         if let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
@@ -250,7 +213,7 @@ final class SessionManager: ObservableObject {
             }
         }
         
-        mlClassifier.reloadModel()
+        feedbackSnapshot = nil
     }
     
     // MARK: - Session Control
@@ -262,12 +225,15 @@ final class SessionManager: ObservableObject {
         hapticManager.updateSettings(settings)
         
         alertCount = 0
-        consecutiveAlerts = 0
         sessionStartTime = Date()
         elapsedTime = 0
         showFeedbackPrompt = false
+        feedbackSnapshot = nil
         isGracePeriodActive = false
         sleepDetectionEngine.reset()
+        motionManager.onWakeGesture = { [weak self] in
+            self?.finishAlertAfterWakeGesture()
+        }
         
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -278,7 +244,15 @@ final class SessionManager: ObservableObject {
         
         if settings.enableMotionDetection {
             motionManager.startTracking()
-            healthKitManager.startMonitoring()
+            isMotionAvailable = motionManager.isTracking
+            if motionManager.isTracking {
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    if await self.healthKitManager.requestAuthorization(), self.state != .idle {
+                        self.healthKitManager.startMonitoring()
+                    }
+                }
+            }
         }
         
         startMonitoringLoop()
@@ -308,15 +282,18 @@ final class SessionManager: ObservableObject {
         gracePeriodTask = nil
         
         motionManager.stopTracking()
+        motionManager.onWakeGesture = nil
         healthKitManager.stopMonitoring()
         hapticManager.stopCurrentSequence()
         sleepDetectionEngine.reset()
         
         sessionStartTime = nil
         nextPingTime = nil
-        consecutiveAlerts = 0
         showFeedbackPrompt = false
+        feedbackSnapshot = nil
         isGracePeriodActive = false
+        manualLogResetTask?.cancel()
+        manualLogConfirmed = false
         
         WKInterfaceDevice.current().play(.stop)
     }
@@ -335,44 +312,47 @@ final class SessionManager: ObservableObject {
             while !Task.isCancelled {
                 guard let self = self else { return }
                 
-                try? await Task.sleep(nanoseconds: 500_000_000) // Check every 0.5s
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard !Task.isCancelled else { return }
                 
                 guard self.state != .idle else { return }
                 guard self.settings.enableMotionDetection else { continue }
+                let sampleIsFresh = self.motionManager.lastSampleDate.map {
+                    Date().timeIntervalSince($0) < 2
+                } ?? (self.elapsedTime < 3)
+                let motionAvailable = self.motionManager.isTracking && sampleIsFresh
+                if self.isMotionAvailable != motionAvailable {
+                    self.isMotionAvailable = motionAvailable
+                }
                 
                 if self.isGracePeriodActive {
-                    self.sleepDetectionEngine.reset()
                     continue
                 }
                 
                 // Instant Waking Motion Check during Alerting State
                 if self.state == .alerting {
                     // Instantly cancel alarm if user performs a high-energy wake gesture (hand shake score > 0.40 or posture reset)
-                    let isHighEnergyWakeGesture = (self.motionManager.movementScore > 0.40) || (!self.motionManager.isPitchDropDetected && self.motionManager.movementScore > 0.20)
+                    let isHighEnergyWakeGesture = (self.motionManager.recentMovementScore > 0.40) || (!self.motionManager.isPitchDropDetected && self.motionManager.recentMovementScore > 0.20)
                     
                     if isHighEnergyWakeGesture {
                         // Instant cancellation on high-energy waking gesture!
-                        self.hapticManager.stopCurrentSequence()
-                        self.consecutiveAlerts = 0
-                        self.state = .monitoring
-                        self.startGracePeriod(seconds: 3)
-                        self.startFeedbackPrompt(seconds: 5)
+                        self.finishAlertAfterWakeGesture()
                     }
                     continue
                 }
                 
-                // Normal Monitoring Evaluation (with ML ensemble)
+                // Current multi-sensor rule evaluation with personal hard negatives.
                 self.sleepDetectionEngine.evaluate(
                     motionManager: self.motionManager,
                     healthKitManager: self.healthKitManager,
                     settings: self.settings,
                     adaptiveEngine: self.adaptiveEngine,
-                    mlClassifier: self.mlClassifier
+                    feedbackSamples: self.settings.useAutoSensitivity ? self.mlReplayBuffer.entries : []
                 )
                 
                 if self.sleepDetectionEngine.isSleepDetected {
                     self.triggerAlert()
-                } else if self.sleepDetectionEngine.totalConfidence >= 0.50 {
+                } else if self.sleepDetectionEngine.isWarningCandidate {
                     if self.state == .monitoring {
                         self.state = .warning
                     }
@@ -387,34 +367,42 @@ final class SessionManager: ObservableObject {
     
     private func triggerAlert() {
         guard state != .alerting else { return }
+        feedbackSnapshot = captureSnapshot()
         
         state = .alerting
         alertCount += 1
-        consecutiveAlerts += 1
         
         // Show feedback buttons IMMEDIATELY upon alerting
         feedbackDismissTask?.cancel()
         showFeedbackPrompt = true
         
         // Rings continuously until user clearly moves or labels
-        hapticManager.playContinuousAlarm(escalated: consecutiveAlerts >= 2)
+        hapticManager.playContinuousAlarm()
+    }
+
+    private func finishAlertAfterWakeGesture() {
+        guard state == .alerting else { return }
+        hapticManager.stopCurrentSequence()
+        state = .monitoring
+        startGracePeriod(seconds: 10)
+        startFeedbackPrompt(seconds: 5)
     }
     
     private func startFeedbackPrompt(seconds: Double) {
-        guard settings.useAutoSensitivity else { return }
-        
         showFeedbackPrompt = true
         feedbackDismissTask?.cancel()
         feedbackDismissTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
             if !Task.isCancelled {
                 self.showFeedbackPrompt = false
+                self.feedbackSnapshot = nil
             }
         }
     }
     
     private func startGracePeriod(seconds: Double) {
         isGracePeriodActive = true
+        sleepDetectionEngine.reset()
         gracePeriodTask?.cancel()
         gracePeriodTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))

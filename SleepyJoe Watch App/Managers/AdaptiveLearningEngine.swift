@@ -86,10 +86,9 @@ final class AdaptiveLearningEngine: ObservableObject {
             
             // False Alarm: Quiet sitting. Adjust granular jitter threshold rather than endlessly adding seconds!
             if wasStillnessActive {
-                // Tighten granular micro-jitter variance threshold (epsilon_jitter) so quiet tremors are distinguished from true atonia
-                microJitterThresholdOffset = max(-0.025, microJitterThresholdOffset - 0.005)
-                // Allow stillness offset to scale up to +4.0s to accommodate desk/reading work
-                personalStillnessOffset = min(4.0, personalStillnessOffset + 0.25)
+                // Small bounded changes leave the primary response time intact.
+                microJitterThresholdOffset = max(-0.018, microJitterThresholdOffset - 0.002)
+                personalStillnessOffset = min(1.0, personalStillnessOffset + 0.1)
             }
             
             if wasHRActive {
@@ -100,7 +99,7 @@ final class AdaptiveLearningEngine: ObservableObject {
                 weightPitch = max(0.20, weightPitch - 0.04)
             }
             
-            confidenceThresholdOffset = min(0.15, confidenceThresholdOffset + 0.03)
+            confidenceThresholdOffset = min(0.05, confidenceThresholdOffset + 0.01)
             
             print("🛡️ [PatternLearning] FALSE POSITIVE: Adjusted Weights (Still: \(weightStillness), JitterOffset: \(microJitterThresholdOffset), HR: \(weightHR))")
         }
@@ -142,9 +141,9 @@ final class AdaptiveLearningEngine: ObservableObject {
             weightPitch = defaults.double(forKey: wPitchKey)
             weightHR = defaults.double(forKey: wHRKey)
         }
-        personalStillnessOffset = defaults.double(forKey: stillnessOffsetKey)
-        microJitterThresholdOffset = defaults.double(forKey: jitterOffsetKey)
-        confidenceThresholdOffset = defaults.double(forKey: confOffsetKey)
+        personalStillnessOffset = min(1.0, max(-0.5, defaults.double(forKey: stillnessOffsetKey)))
+        microJitterThresholdOffset = min(0.0, max(-0.018, defaults.double(forKey: jitterOffsetKey)))
+        confidenceThresholdOffset = min(0.05, max(-0.15, defaults.double(forKey: confOffsetKey)))
         truePositivesCount = defaults.integer(forKey: tpCountKey)
         falsePositivesCount = defaults.integer(forKey: fpCountKey)
     }

@@ -46,8 +46,8 @@ struct FeatureExtractor {
         let varZ = computeVariance(z, mean: meanZ)
         let varPitch = computeVariance(pitch, mean: meanPitch)
         
-        // 6: Total Jitter Variance = (varX² + varY² + varZ²) / 3
-        let totalJitterVar = (varX * varX + varY * varY + varZ * varZ) / 3.0
+        // 6: Mean per-axis variance (the variances are already squared units).
+        let totalJitterVar = (varX + varY + varZ) / 3.0
         
         // 7: Signal Magnitude Area (SMA) = sum(|x|+|y|+|z|) / N
         var absX = [Float](repeating: 0, count: Int(n))

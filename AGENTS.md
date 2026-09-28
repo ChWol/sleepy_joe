@@ -4,13 +4,15 @@ Dieses Dokument dient als zentrale Knowledge-Base für Agenten und Entwickler zu
 
 ---
 
-## 1. Physiologische Grundvoraussetzungen & Sensor-Quellen
+## 1. Sensor-Hypothesen und Grenzen
+
+Die folgenden Zahlen sind heuristische Startwerte, keine physiologischen Grenzwerte. Insbesondere ist absolute Muskelatonie kein verlässliches Kennzeichen von N1; sie wird vor allem mit REM-Schlaf verbunden. Handgelenks-Aktigraphie verwechselt ruhiges Wachsein häufig mit Schlaf ([Validierungsstudie gegen Polysomnographie](https://pmc.ncbi.nlm.nih.gov/articles/PMC3792393/)). Das Produkt soll als Aufmerksamkeitshilfe verstanden und anhand echter Nutzung kalibriert werden.
 
 Beim Einnicken (Übergang in Schlafstadium N1 / Mikroschlaf) verhalten sich die 3 Kernsignale wie folgt:
 
 1. **Mikro-Jitter Varianz ($\sigma^2_{\text{jitter}}$)**: 
    - *Waches ruhiges Sitzen*: Regelmäßige Mikro-Korrekturspikes (Tippen, Atmung, Haltungskorrekturen) im Bereich $>0.015$.
-   - *Einnicken*: Absolute physiologische Nulllinie ($\sigma^2_{\text{jitter}} < 0.005$) durch Muskelatonie.
+   - *Mögliches Einnicken*: Eine Phase geringerer Bewegung kann auftreten, ist allein aber nicht spezifisch für Schlaf.
 2. **Handgelenks-Pitch ($\theta_{\text{pitch}}$)**:
    - *Waches Sitzen*: Muskeltonus hält die Ausrichtung.
    - *Einnicken*: Absacken nach unten ($\Delta \theta > 10^\circ$) oder statische Abwärtsneigung ($<-15^\circ$).
@@ -41,9 +43,9 @@ In der echten Nutzung gibt es ein starkes Klassen-Ungleichgewicht:
      a) Eine klare, bewusste Aufwach-Geste ausführt (Hand schütteln $\text{movementScore} > 0.40$ oder Arm aufrichten $\text{movementScore} > 0.20$), ODER
      b) Direkt auf einen der Feedback-Buttons (`[ ✓ ]` oder `[ ✕ ]`) tippt.
    - Kleines passives Zucken ($\text{movementScore} < 0.20$) wird ignoriert, damit der Alarm sicher weckt.
-   - Sobald die Aufwach-Aktion erkannt wird, bricht der Alarm **augenblicklich mit 0 Sekunden Latenz** ab.
+   - Die App beendet die Haptik beim nächsten passenden Sensorereignis ohne zusätzlichen Polling-Timer; eine physisch garantierte Null-Latenz ist nicht möglich.
 2. **Sofortige Button-Anzeige beim Alarm (Instant Feedback Buttons)**:
-   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) erscheinen **sofort in derselben Millisekunde**, in der der Alarm ausgelöst wird, und bleiben nach dem Aufwachen für 5 Sekunden sichtbar.
+   - Die Feedback-Buttons (`[ ✓ ] [ ✕ ]`) werden mit dem Alarmzustand gesetzt und bleiben nach dem Aufwachen für 5 Sekunden sichtbar.
 3. **Refraktäre Grace Period (10 Sekunden)**:
    - Sobald die App wieder auf den Status **Aktiv (Grün)** zurückkehrt, geht das System für 10 Sekunden in eine Schutzphase, um Mehrfach-Schocks zu vermeiden.
 4. **Diskrete Opt-In Logik**:
@@ -53,7 +55,7 @@ In der echten Nutzung gibt es ein starkes Klassen-Ungleichgewicht:
 
 ## 4. Feature Engineering & ML-Backlog für spätere Offline-Analysen
 
-Da `TelemetryLogger` die rohen 5-Sekunden-Zeitreihen ($50 \text{ Steps} \times 4 \text{ Kanäle}$) speichert, können wir später auf den gesammelten Daten folgende Feature-Muster evaluieren:
+Da `TelemetryLogger` das Alarmfenster (bis zu $50 \text{ Steps}$ mit Pitch, Bewegungsdelta und drei Beschleunigungsachsen) speichert, können wir später auf den gesammelten Daten folgende Feature-Muster evaluieren:
 
 ### A. Zeitbereich-Features (Time-Domain)
 1. **Signal-Spanne (Peak-to-Peak Amplitude)**: $\text{Spanne} = \max(x) - \min(x)$. Erkennt schlagartiges Hand-Schütteln oder Arm-Rucken sofort.
@@ -71,7 +73,9 @@ Da `TelemetryLogger` die rohen 5-Sekunden-Zeitreihen ($50 \text{ Steps} \times 4
 
 ---
 
-## 5. Implementierte On-Device ML Pipeline (CoreML Updatable MLP)
+## 5. Experimentelle On-Device ML Pipeline (CoreML Updatable MLP)
+
+**Stand September 2026:** Der CoreML-Pfad bleibt als Experiment im Repository, wird aber in der laufenden Erkennung weder geladen noch trainiert. Die initialen Gewichte sind zufällig und die synthetischen Anchor-Samples sind keine validierten Schlafdaten. Eine direkte Alarm- oder Veto-Entscheidung daraus wäre bei wenigen echten Positivbeispielen unzuverlässig. Produktiv arbeitet die Regel-Engine mit konservativem Abgleich explizit gelabelter Fehlalarme; bestätigtes Einnicken schützt ein ähnliches Muster vor einem Veto. Eine Aktivierung des MLP erfordert unabhängige Validierung auf echten, personenbezogen getrennten Zeitreihen.
 
 ### A. Modell-Architektur
 - **Typ**: Updatable 2-Layer MLP (Multi-Layer Perceptron)
@@ -98,17 +102,17 @@ Da `TelemetryLogger` die rohen 5-Sekunden-Zeitreihen ($50 \text{ Steps} \times 4
 | 15 | Peak Energy | $\max(x)^2 + \max(y)^2 + \max(z)^2$ | Burst-Energie |
 
 ### C. Anti-Catastrophic-Forgetting: Anchor-Samples
-- **20 unveränderliche Gold-Standard-Samples** im App-Bundle (`anchor_samples.json`)
+- **20 synthetische Prototyp-Samples** im App-Bundle (`anchor_samples.json`); kein validierter Goldstandard
 - 10 × "awake" (realistische Mikro-Korrekturen), 10 × "sleep" (Muskelatonie)
 - Bei jedem Training: $\text{Batch} = \text{Anchors (20)} + \text{User-Buffer (bis 100)}$
 - "sleep"-Samples werden ×3 dupliziert gegen Klassen-Ungleichgewicht
 
-### D. Training-Trigger
-1. **Sofort (Foreground)**: Bei jedem `✓`/`✕` Tap → 15 Epochen (~20 ms, `.utility` QoS)
-2. **Konsolidierung (Laden)**: `WKApplicationRefreshBackgroundTask` wenn Uhr lädt & Akku > 50% → 50 Epochen
+### D. Historisch vorgesehene Training-Trigger (derzeit deaktiviert)
+1. **Foreground**: Bei jedem `✓`/`✕` Tap → 15 Epochen (`.utility` QoS)
+2. **Konsolidierung**: `WKApplicationRefreshBackgroundTask` wenn Uhr lädt & Akku > 50% → 50 Epochen
 3. **Replay-Buffer**: Ring-Buffer mit max. 100 gelabelten Feature-Vektoren auf Disk
 
-### E. Ensemble-Erkennung
+### E. Historisches Ensemble-Konzept (derzeit deaktiviert)
 $$\text{totalConfidence} = \max(\text{ruleConfidence}, \text{mlConfidence})$$
 - Alarm wird ausgelöst, wenn **entweder** Rule-Engine **oder** ML-Modell den Schwellenwert überschreitet
 - Graceful Degradation: ML-Modell ist optional; Rule-Engine funktioniert immer als Fallback
@@ -117,3 +121,14 @@ $$\text{totalConfidence} = \max(\text{ruleConfidence}, \text{mlConfidence})$$
 1. **Offline-Validation auf dem Mac**: Random Forest, TCN, LSTM auf gesammelten Telemetrie-Daten benchmarken
 2. **iPhone-Companion-Offloading**: Telemetrie via `WCSession.transferFile()` an iPhone für tiefere Analyse
 3. **Frequenz-Features (FFT)**: PSD-Bänder als zusätzliche Features für v2 des Feature-Vektors
+
+---
+
+## 6. Aktueller Produktpfad und Validierung
+
+- Ein Alarm benötigt frische Bewegungsdaten, Stillstand und entweder eine aktuelle Haltungsänderung, einen frischen Puls-Trend oder ungewöhnlich lange, sehr ruhige Bewegungslosigkeit. Statische Handgelenksneigung allein ist kein Schlafbeweis.
+- Nach drei ähnlichen, ausdrücklich gemeldeten Fehlalarmen wird nur der mehrdeutige Stillstands-/Puls-Pfad unterdrückt. Eine Haltungsänderung bleibt aktiv. Ein ähnliches bestätigtes Einnicken hebt das Veto auf.
+- Feedback beschriftet das beim Alarm eingefrorene Sensorfenster. Bewegungen beim Aufwachen gelangen nicht in dieses Trainingsbeispiel. Ohne vollständiges 5-Sekunden-Fenster wird kein persönliches Muster gespeichert.
+- Der Alarm endet beim passenden Sensorereignis oder Feedback-Tap; die physische Reaktionszeit der Uhr ist nicht null. Danach gelten zehn Sekunden Schutzphase und fünf Sekunden optionale Feedback-Anzeige.
+- Feature 6 ist der Mittelwert der drei Achsen-Varianzen. Ältere Pufferdaten enthalten dort den früheren Quadrierungsfehler; der produktive Mustervergleich nutzt dieses Feld nicht.
+- Die Schwellenwerte und Musterabstände sind Startwerte, keine medizinisch validierte Schlafdiagnose. Vor einer Veröffentlichung sind Tests auf echten Uhren mit ruhiger Arbeit, verschiedenen Armhaltungen, fehlendem Puls, echten Einnickereignissen, Akkulaufzeit und Hintergrundverhalten erforderlich.

@@ -74,9 +74,15 @@ struct SettingsView: View {
                 if useAutoSensitivity {
                     Section("Learned Profile") {
                         HStack {
-                            Text("Precision")
+                            Text("Confirmed alerts")
                             Spacer()
-                            Text("\(sessionManager.adaptiveEngine.precisionPercentage)%")
+                            Text("\(sessionManager.adaptiveEngine.truePositivesCount)")
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            Text("False alarms")
+                            Spacer()
+                            Text("\(sessionManager.adaptiveEngine.falsePositivesCount)")
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -114,16 +120,16 @@ struct SettingsView: View {
                 }
             }
             .confirmationDialog(
-                "Reset Calibration?",
+                "Reset learning?",
                 isPresented: $showResetConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Reset All Learning", role: .destructive) {
+                Button("Reset Learning", role: .destructive) {
                     sessionManager.resetAllLearning()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("All personalized model weights and training samples will be permanently cleared.")
+                Text("Feedback patterns and saved sensor windows will be cleared.")
             }
             .onChange(of: useAutoSensitivity) { _, _ in applySettings() }
             .onChange(of: sensitivity) { _, _ in applySettings() }

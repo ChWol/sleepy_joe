@@ -50,26 +50,33 @@ struct ContentView: View {
             
             Spacer()
             
-            // Icon-Driven Circular Start Button
-            Button {
-                sessionManager.startSession()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 72, height: 72)
-                    
-                    Circle()
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1.5)
-                        .frame(width: 72, height: 72)
-                    
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 26, weight: .medium))
-                        .foregroundStyle(.white)
-                        .offset(x: 2)
+            VStack(spacing: 8) {
+                Button {
+                    sessionManager.startSession()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.12))
+                            .frame(width: 72, height: 72)
+
+                        Circle()
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1.5)
+                            .frame(width: 72, height: 72)
+
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 26, weight: .medium))
+                            .foregroundStyle(.white)
+                            .offset(x: 2)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Start focus monitoring")
+
+                Text("Stay alert during quiet work")
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
             }
-            .buttonStyle(.plain)
             
             Spacer()
         }

@@ -21,7 +21,7 @@ struct SessionView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white.opacity(0.45))
-                            .frame(width: 26, height: 26)
+                            .frame(width: 36, height: 36)
                             .background(Color.white.opacity(0.14), in: Circle())
                     }
                     .buttonStyle(.plain)
@@ -34,8 +34,9 @@ struct SessionView: View {
             // Center: Minimalist Ambient Status Gauge / Tap to Log Microsleep
             Button {
                 guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
-                triggerFeedbackAnimation(color: .green)
-                sessionManager.logManualSleepOnset()
+                if sessionManager.logManualSleepOnset() {
+                    triggerFeedbackAnimation(color: .green)
+                }
             } label: {
                 VStack(spacing: 10) {
                     ZStack {
@@ -67,12 +68,18 @@ struct SessionView: View {
                     Text(statusText)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(sessionManager.manualLogConfirmed ? .green : (sessionManager.state == .alerting ? .orange : .white.opacity(0.4)))
+                    if sessionManager.state == .monitoring || sessionManager.state == .warning {
+                        Text("Tap for missed drowsiness")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Log missed drowsiness alert")
             
             // Bottom: Live Discreet Feedback Bar (Shown immediately upon alerting AND during feedback window)
-            if (sessionManager.showFeedbackPrompt || sessionManager.state == .alerting) && sessionManager.settings.useAutoSensitivity {
+            if sessionManager.showFeedbackPrompt || sessionManager.state == .alerting {
                 VStack {
                     Spacer()
                     
@@ -82,26 +89,34 @@ struct SessionView: View {
                             triggerFeedbackAnimation(color: .green)
                             sessionManager.submitFeedback(wasTruePositive: true)
                         } label: {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.9))
-                                .frame(width: 38, height: 38)
-                                .background(Color.white.opacity(0.18), in: Circle())
+                            VStack(spacing: 2) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .frame(width: 38, height: 38)
+                                    .background(Color.white.opacity(0.18), in: Circle())
+                                Text("Correct").font(.system(size: 9))
+                            }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Correct alert")
                         
                         // False Positive (✕ Fehlalarm)
                         Button {
                             triggerFeedbackAnimation(color: .orange)
                             sessionManager.submitFeedback(wasTruePositive: false)
                         } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.9))
-                                .frame(width: 38, height: 38)
-                                .background(Color.white.opacity(0.18), in: Circle())
+                            VStack(spacing: 2) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .frame(width: 38, height: 38)
+                                    .background(Color.white.opacity(0.18), in: Circle())
+                                Text("False").font(.system(size: 9))
+                            }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("False alarm")
                     }
                     .padding(.bottom, 6)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -124,6 +139,9 @@ struct SessionView: View {
         }
         if sessionManager.isGracePeriodActive {
             return "Grace Period"
+        }
+        if sessionManager.settings.enableMotionDetection && !sessionManager.isMotionAvailable {
+            return "Motion unavailable"
         }
         if sessionManager.state == .warning {
             return "Checking..."

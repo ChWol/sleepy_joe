@@ -13,6 +13,17 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     @Published var heartRateDropPercentage: Double = 0.0
     @Published var isHealthKitAuthorized: Bool = false
     @Published var isMonitoring: Bool = false
+    private(set) var lastHeartRateSampleDate: Date?
+    private var heartRateDropStartedAt: Date?
+    var hasFreshHeartRate: Bool {
+        guard isMonitoring else { return false }
+        guard hrHistory.count >= 3, let lastHeartRateSampleDate else { return false }
+        return Date().timeIntervalSince(lastHeartRateSampleDate) < 20
+    }
+    var hasRecentHeartRateDrop: Bool {
+        guard hasFreshHeartRate, let heartRateDropStartedAt else { return false }
+        return Date().timeIntervalSince(heartRateDropStartedAt) < 45
+    }
     
     // MARK: - Private Properties
     
@@ -27,9 +38,6 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     
     override init() {
         super.init()
-        Task {
-            let _ = await requestAuthorization()
-        }
     }
     
     // MARK: - Authorization
@@ -58,6 +66,7 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     
     func startMonitoring() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard session == nil else { return }
         
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .other
@@ -79,11 +88,13 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
             newSession.startActivity(with: Date())
             
             newBuilder.beginCollection(withStart: Date()) { [weak self] success, error in
-                guard let self = self, success else {
-                    print("[HealthKitManager] Failed to begin collection: \(error?.localizedDescription ?? "unknown")")
-                    return
-                }
                 Task { @MainActor in
+                    guard let self = self, self.session === newSession else { return }
+                    guard success else {
+                        print("[HealthKitManager] Failed to begin collection: \(error?.localizedDescription ?? "unknown")")
+                        self.stopMonitoring()
+                        return
+                    }
                     self.isMonitoring = true
                     print("[HealthKitManager] Started continuous Heart Rate monitoring & background session")
                 }
@@ -94,16 +105,27 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     }
     
     func stopMonitoring() {
-        session?.end()
-        builder?.endCollection(withEnd: Date()) { [weak self] _, _ in
-            Task { @MainActor in
-                self?.isMonitoring = false
-                self?.hrHistory.removeAll()
-                self?.currentHeartRate = 0.0
-                self?.baselineHeartRate = 0.0
-                self?.heartRateDropPercentage = 0.0
-                print("[HealthKitManager] Stopped Heart Rate monitoring")
+        let oldSession = session
+        let oldBuilder = builder
+        session = nil
+        builder = nil
+        isMonitoring = false
+        hrHistory.removeAll()
+        lastHeartRateSampleDate = nil
+        currentHeartRate = 0
+        baselineHeartRate = 0
+        heartRateDropPercentage = 0
+        heartRateDropStartedAt = nil
+        let endDate = Date()
+        oldSession?.stopActivity(with: endDate)
+        if let oldBuilder {
+            oldBuilder.endCollection(withEnd: endDate) { _, _ in
+                // Focus monitoring is not an exercise workout.
+                oldBuilder.discardWorkout()
+                oldSession?.end()
             }
+        } else {
+            oldSession?.end()
         }
     }
     
@@ -111,25 +133,33 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     
     private func processNewHeartRate(_ hr: Double) {
         guard hr > 30 && hr < 220 else { return }
+        guard session != nil else { return }
         
         currentHeartRate = hr
-        
-        if baselineHeartRate == 0.0 {
-            // Seed baseline instantly from first valid sample
-            baselineHeartRate = hr
-        } else {
-            // Slowly adapt baseline using Exponential Moving Average
-            baselineHeartRate = (baselineHeartRate * 0.9) + (hr * 0.1)
-        }
-        
+        lastHeartRateSampleDate = Date()
         hrHistory.append(hr)
-        if hrHistory.count > maxHistorySamples {
-            hrHistory.removeFirst()
+        if hrHistory.count > maxHistorySamples { hrHistory.removeFirst() }
+        
+        if hrHistory.count <= 3 {
+            // A single noisy first reading must not establish the resting baseline.
+            baselineHeartRate = hrHistory.reduce(0, +) / Double(hrHistory.count)
+            heartRateDropPercentage = 0
+            heartRateDropStartedAt = nil
+            return
+        } else {
+            // Track waking drift slowly enough that a genuine short drop remains visible.
+            baselineHeartRate = (baselineHeartRate * 0.995) + (hr * 0.005)
         }
         
         if baselineHeartRate > 0 {
+            let previousDrop = heartRateDropPercentage
             let drop = max(0, (baselineHeartRate - currentHeartRate) / baselineHeartRate)
             heartRateDropPercentage = drop
+            if drop >= 0.05 && previousDrop < 0.05 {
+                heartRateDropStartedAt = Date()
+            } else if drop < 0.05 {
+                heartRateDropStartedAt = nil
+            }
         } else {
             heartRateDropPercentage = 0.0
         }
@@ -146,6 +176,7 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
             let value = statistics.mostRecentQuantity()?.doubleValue(for: unit) ?? 0.0
             
             Task { @MainActor in
+                guard self.builder === workoutBuilder else { return }
                 self.processNewHeartRate(value)
             }
         }
@@ -155,8 +186,29 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
     
     // MARK: - HKWorkoutSessionDelegate
     
-    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {}
+    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
+        if toState == .ended {
+            Task { @MainActor in
+                guard self.session === workoutSession else { return }
+                self.builder?.discardWorkout()
+                self.builder = nil
+                self.session = nil
+                self.isMonitoring = false
+                self.heartRateDropPercentage = 0
+                self.heartRateDropStartedAt = nil
+            }
+        }
+    }
     nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
         print("[HealthKitManager] Workout session error: \(error.localizedDescription)")
+        Task { @MainActor in
+            guard self.session === workoutSession else { return }
+            self.builder?.discardWorkout()
+            self.builder = nil
+            self.session = nil
+            self.isMonitoring = false
+            self.heartRateDropPercentage = 0
+            self.heartRateDropStartedAt = nil
+        }
     }
 }

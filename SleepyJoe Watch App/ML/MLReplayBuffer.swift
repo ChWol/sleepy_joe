@@ -32,6 +32,9 @@ class MLReplayBuffer: ObservableObject {
     ///   - label: The truth label ("sleep" or "awake")
     ///   - features: The array of 16 feature floats.
     func addSample(label: String, features: [Float]) {
+        guard (label == "sleep" || label == "awake"),
+              features.count == 16,
+              features.allSatisfy(\.isFinite) else { return }
         let newEntry = LabeledFeatureVector(
             id: UUID(),
             timestamp: Date(),
@@ -41,22 +44,18 @@ class MLReplayBuffer: ObservableObject {
         
         entries.append(newEntry)
         
-        // Evict oldest if we exceed capacity
+        // Preserve scarce confirmed positives when the user reports many false
+        // alarms. Keep enough negatives to represent several desk postures.
+        let classLimit = label == "sleep" ? 40 : 60
+        if entries.filter({ $0.label == label }).count > classLimit,
+           let oldestSameClass = entries.firstIndex(where: { $0.label == label }) {
+            entries.remove(at: oldestSameClass)
+        }
+
         if entries.count > maxCapacity {
-            let removed = entries.removeFirst()
-            if removed.label == "sleep" {
-                sleepCount -= 1
-            } else if removed.label == "awake" {
-                awakeCount -= 1
-            }
+            entries.removeFirst()
         }
-        
-        if label == "sleep" {
-            sleepCount += 1
-        } else if label == "awake" {
-            awakeCount += 1
-        }
-        
+        updateCounts()
         saveToDisk()
     }
     
@@ -68,7 +67,13 @@ class MLReplayBuffer: ObservableObject {
             let decoded = try JSONDecoder().decode([LabeledFeatureVector].self, from: data)
             
             // Reassign to published property
-            self.entries = decoded
+            let valid = decoded.filter {
+                ($0.label == "sleep" || $0.label == "awake") &&
+                $0.features.count == 16 && $0.features.allSatisfy(\.isFinite)
+            }
+            let positives = valid.filter { $0.label == "sleep" }.suffix(40)
+            let negatives = valid.filter { $0.label == "awake" }.suffix(60)
+            self.entries = (positives + negatives).sorted { $0.timestamp < $1.timestamp }
             
             // Recompute counts
             updateCounts()
@@ -103,8 +108,6 @@ class MLReplayBuffer: ObservableObject {
     private func saveToDisk() {
         do {
             let encoder = JSONEncoder()
-            // Optional: for better debuggability on device
-            encoder.outputFormatting = .prettyPrinted
             let data = try encoder.encode(entries)
             try data.write(to: fileURL, options: .atomic)
         } catch {
