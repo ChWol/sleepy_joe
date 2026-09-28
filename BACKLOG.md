@@ -24,7 +24,7 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 
 - [x] ~~**Build a labeled sensor replay format and evaluator.**~~ Added a versioned JSON timeline format and host-side evaluator that replays the production rule engine and reports sensitivity, median latency, false alerts per hour, and sample gaps. See `tools/SENSOR_REPLAY_FORMAT.md`. Requires meaningful labels before interpreting results.
 - [x] ~~**Add detector decision traces.**~~ Added an opt-in, local-only trace of candidates, alerts, feedback, wake cancellation, grace-period changes, sensor gaps, confidence, thresholds, and sample age. It stores no raw motion and is removed by Delete saved sensor data. The trace is bounded to 5,000 events.
-- [ ] **Audit session and alarm state transitions.** Check that stop, stale sensors, HealthKit denial/failure, workout interruption, wake gesture, feedback, grace expiry, and repeated alarms always leave timers, haptics, and prompts in a valid state.
+- [x] ~~**Audit session and alarm state transitions.**~~ Reviewed start/stop cleanup, stale-sensor fallback, HealthKit failure, wake/feedback cancellation, grace expiry, and repeated-alert gating. Fixed a late authorization callback that could update a stopped session. Workout interruption and haptic delivery still need the physical-watch check below.
 - [x] ~~**Make sensor readiness explicit.**~~ The active screen reports when motion is unavailable and shows “Motion only” after HealthKit authorization when no fresh pulse is available. Physical watch behavior remains to validate.
 - [ ] **Validate live background operation and battery on physical watches.** Confirm motion delivery and haptic behavior with screen off, wrist down, app backgrounded, workout interruptions, low power, and competing workout sessions. Apple documents background execution during an active workout, but also advises limiting CPU use: [Running workout sessions](https://developer.apple.com/documentation/healthkit/running-workout-sessions).
 
@@ -61,6 +61,7 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 - Initial research supports a cautious design: wrist immobility alone can classify quiet wake as sleep, and background workout sessions provide runtime but require explicit lifecycle and battery validation.
 - Implemented in this pass: replay evaluator, no global negative-feedback threshold changes, lower-profile active UI, a local data deletion action, and heart-rate permission copy aligned with the discarded workout lifecycle.
 - Follow-up implementation: opt-in bounded decision traces, a fix for a late HealthKit authorization callback after session stop, and exclusion of saved sensor material from backups.
+- A source-level lifecycle audit is complete; physical watch behavior under workout interruption and background haptics remains unverified.
 - The code review found separate short/long movement windows were already present; the backlog now records them as complete. The current detector still needs labeled data to tune their thresholds.
 - Still requiring device/data access: replay evaluation on representative labeled data, real-watch lifecycle and battery checks, false-alarm/latency tuning, and validation across people and contexts.
 - Last reviewed: 2026-09-28.
