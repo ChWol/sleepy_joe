@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var hapticStrength: HapticStrength
     @State private var enablePings: Bool
     @State private var showResetConfirmation = false
+    @State private var showDeleteDataConfirmation = false
     
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
@@ -86,25 +87,27 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         
-                        HStack {
-                            Text("Calibration")
-                            Spacer()
-                            Text(String(format: "%+.1fs", sessionManager.adaptiveEngine.personalStillnessOffset))
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("Saved Samples")
-                            Spacer()
-                            Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Button("Reset Calibration") {
+                        Button("Reset all learning") {
                             showResetConfirmation = true
                         }
                         .foregroundStyle(.red.opacity(0.8))
                     }
+                }
+
+                Section("Your Data") {
+                    Text("Sensor windows are saved on this watch only when you submit alert feedback. They help recognize similar personal patterns.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text("Saved windows")
+                        Spacer()
+                        Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Delete saved sensor data", role: .destructive) {
+                        showDeleteDataConfirmation = true
+                    }
+                    .disabled(sessionManager.telemetryLogger.totalSavedSamples == 0 && sessionManager.mlReplayBuffer.entries.isEmpty)
                 }
             }
             .navigationTitle("Settings")
@@ -129,7 +132,19 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Feedback patterns and saved sensor windows will be cleared.")
+                Text("All learned calibration and saved personal sensor examples will be cleared.")
+            }
+            .confirmationDialog(
+                "Delete saved sensor data?",
+                isPresented: $showDeleteDataConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Sensor Data", role: .destructive) {
+                    sessionManager.deleteStoredSensorData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Saved alert windows and personal example patterns will be removed. Your sensitivity settings and feedback counts will remain.")
             }
             .onChange(of: useAutoSensitivity) { _, _ in applySettings() }
             .onChange(of: sensitivity) { _, _ in applySettings() }

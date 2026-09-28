@@ -72,10 +72,6 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Start focus monitoring")
 
-                Text("Stay alert during quiet work")
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .multilineTextAlignment(.center)
             }
             
             Spacer()

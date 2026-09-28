@@ -25,6 +25,8 @@ final class SessionManager: ObservableObject {
     @Published var alertCount: Int = 0
     @Published var nextPingIn: TimeInterval = 0
     @Published var isMotionAvailable: Bool = true
+    @Published var isHeartRateAvailable: Bool = false
+    @Published var hasCheckedHealthKitAuthorization: Bool = false
     @Published var settings: SessionSettings
     
     /// Controls whether the 5-second discreet live feedback bar (✓/✕) is shown after returning to Active
@@ -202,9 +204,7 @@ final class SessionManager: ObservableObject {
     /// and user-trained model (reverts to factory bundle model).
     func resetAllLearning() {
         adaptiveEngine.resetCalibration()
-        mlReplayBuffer.clear()
-        telemetryLogger.clearTelemetry()
-        
+        deleteStoredSensorData()
         let fileManager = FileManager.default
         if let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
             let trainedModelURL = docsURL.appendingPathComponent("SleepyClassifier.mlmodelc")
@@ -212,7 +212,14 @@ final class SessionManager: ObservableObject {
                 try? fileManager.removeItem(at: trainedModelURL)
             }
         }
-        
+        feedbackSnapshot = nil
+    }
+
+    /// Deletes explicitly labeled sensor windows and personal example patterns.
+    /// Calibration counters and sensitivity preferences remain intact.
+    func deleteStoredSensorData() {
+        mlReplayBuffer.clear()
+        telemetryLogger.clearTelemetry()
         feedbackSnapshot = nil
     }
     
@@ -230,6 +237,8 @@ final class SessionManager: ObservableObject {
         showFeedbackPrompt = false
         feedbackSnapshot = nil
         isGracePeriodActive = false
+        isHeartRateAvailable = false
+        hasCheckedHealthKitAuthorization = false
         sleepDetectionEngine.reset()
         motionManager.onWakeGesture = { [weak self] in
             self?.finishAlertAfterWakeGesture()
@@ -248,7 +257,9 @@ final class SessionManager: ObservableObject {
             if motionManager.isTracking {
                 Task { [weak self] in
                     guard let self = self else { return }
-                    if await self.healthKitManager.requestAuthorization(), self.state != .idle {
+                    let authorized = await self.healthKitManager.requestAuthorization()
+                    self.hasCheckedHealthKitAuthorization = true
+                    if authorized, self.state != .idle {
                         self.healthKitManager.startMonitoring()
                     }
                 }
@@ -292,6 +303,8 @@ final class SessionManager: ObservableObject {
         showFeedbackPrompt = false
         feedbackSnapshot = nil
         isGracePeriodActive = false
+        isHeartRateAvailable = false
+        hasCheckedHealthKitAuthorization = false
         manualLogResetTask?.cancel()
         manualLogConfirmed = false
         
@@ -324,6 +337,7 @@ final class SessionManager: ObservableObject {
                 if self.isMotionAvailable != motionAvailable {
                     self.isMotionAvailable = motionAvailable
                 }
+                self.isHeartRateAvailable = self.healthKitManager.hasFreshHeartRate
                 
                 if self.isGracePeriodActive {
                     continue

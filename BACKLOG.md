@@ -22,10 +22,10 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 
 ### P0 — Make behavior observable and safe to improve
 
-- [ ] **Build a labeled sensor replay format and evaluator.** Replay timestamped motion, pitch, and available pulse values through the production detector. Report alert latency, false alerts per hour, missed events, and sensor gaps for each session. This gives us a repeatable way to compare changes without tuning against anecdotes.
+- [x] ~~**Build a labeled sensor replay format and evaluator.**~~ Added a versioned JSON timeline format and host-side evaluator that replays the production rule engine and reports sensitivity, median latency, false alerts per hour, and sample gaps. See `tools/SENSOR_REPLAY_FORMAT.md`. Requires meaningful labels before interpreting results.
 - [ ] **Add detector decision traces.** Log a compact reason and the relevant thresholds/timers for every candidate, alert, cancellation, and sensor gap. Keep raw telemetry opt-in and local; allow traces to be deleted.
 - [ ] **Audit session and alarm state transitions.** Check that stop, stale sensors, HealthKit denial/failure, workout interruption, wake gesture, feedback, grace expiry, and repeated alarms always leave timers, haptics, and prompts in a valid state.
-- [ ] **Make sensor readiness explicit.** Distinguish motion available, heart rate available, and heart rate stale. Show a quiet, understandable degraded-mode indication and avoid implying that missing pulse means no risk.
+- [x] ~~**Make sensor readiness explicit.**~~ The active screen reports when motion is unavailable and shows “Motion only” after HealthKit authorization when no fresh pulse is available. Physical watch behavior remains to validate.
 - [ ] **Validate live background operation and battery on physical watches.** Confirm motion delivery and haptic behavior with screen off, wrist down, app backgrounded, workout interruptions, low power, and competing workout sessions. Apple documents background execution during an active workout, but also advises limiting CPU use: [Running workout sessions](https://developer.apple.com/documentation/healthkit/running-workout-sessions).
 
 ### P1 — Improve detection quality and response time
@@ -33,23 +33,23 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 - [ ] **Replace the single averaged movement score with robust short and long windows.** Preserve brief corrective movements, sustained stillness, signal quality, and sampling gaps separately so a five-second average cannot hide a transition.
 - [ ] **Review posture features in device coordinates.** Current pitch comes from attitude pitch and a fixed relative drop heuristic. Check wrist orientation differences and arm positions; use calibrated baseline, angular velocity, and gravity orientation where they improve repeatability.
 - [ ] **Review pulse freshness and baseline logic.** Confirm the trend is relative to a suitable personal seated baseline, bound the age of samples, and test missing/noisy pulse. Never let a stale pulse value silently support an alarm.
-- [ ] **Rework feedback adaptation to match the product rule.** Three similar explicit false-alarm labels should suppress only the ambiguous stillness/pulse path; one false alarm should not globally lengthen all detections. Confirmed positives should protect similar examples and improve response cautiously.
+- [x] ~~**Rework feedback adaptation to match the product rule.**~~ A false-alarm label now records the count without globally changing timing or sensor weights. Similar examples are handled by the three-example personal pattern veto; confirmed positives retain their cautious sensitivity adjustment.
 - [ ] **Audit personal-pattern distance and sample handling.** Check feature scaling, duplicates, missing/invalid values, class counts, stale examples, and persistence limits. Keep labels tied to the frozen pre-alarm window; never train on wake-up motion.
 - [ ] **Tune thresholds only against labeled replay and watch sessions.** Compare sensitivity, false alarms per hour, and detection latency across people and contexts. Do not select a setting from overall accuracy alone when positives are rare.
 - [ ] **Add an explicit calibration flow.** Collect a short quiet-awake baseline in typical use posture, explain what it does, allow skip/reset, and keep calibration from claiming it can detect sleep by itself.
 
 ### P2 — Make the watch experience discreet and polished
 
-- [ ] **Redesign the active screen as a neutral focus/watch face.** Remove the always-visible “Tap for missed drowsiness” instruction; use a simple ambient indicator and make manual event logging discoverable through a deliberate secondary action.
-- [ ] **Polish alert and feedback UI.** Show immediate feedback actions with compact icons and accessible labels; retain them for five seconds after wake. Make the wake state clear to the wearer without a large public-facing “Wake Up!” message.
+- [x] ~~**Redesign the active screen as a neutral focus/watch face.**~~ Removed the explanatory start-screen subtitle and visible manual logging instruction; manual event logging now uses a long press or an accessible VoiceOver action.
+- [x] ~~**Polish alert and feedback UI.**~~ Feedback controls now use icons with accessible labels, and the alert copy is “Check in”; five-second post-wake feedback remains in place.
 - [ ] **Review haptic patterns on device.** Confirm the repeating sequence is supported, perceptible, and stoppable at the next sensor event. Offer an escalating but bounded pattern, and make intensity/preferences clear. A “continuous” loop is necessarily a sequence of discrete haptic calls.
 - [ ] **Simplify Settings and copy.** Explain sensitivity in plain language, describe optional random pings accurately, and keep learned-profile numbers from implying clinical accuracy.
 - [ ] **Finish accessibility and presentation pass.** Check Dynamic Type where applicable, VoiceOver actions, contrast, localization, small watch sizes, icon, and screenshots.
 
 ### P3 — Privacy, release readiness, and research
 
-- [ ] **Review telemetry purpose, fields, retention, and deletion.** Provide a clear local-data summary and delete action. Ensure reset removes telemetry, replay samples, and learned calibration consistently.
-- [ ] **Align HealthKit permission copy and workout lifecycle with actual behavior.** The current update-purpose text says workout state is recorded; verify whether workouts are saved or discarded, and make the user-facing explanation accurate. Apple says workout apps should clearly indicate the active workout and save or offer discard: [Running workout sessions](https://developer.apple.com/documentation/healthkit/running-workout-sessions).
+- [x] ~~**Review telemetry purpose, fields, retention, and deletion.**~~ Settings explains that feedback saves local sensor windows and offers separate sensor-data deletion. Reset Learning still clears calibration and personal data together.
+- [x] ~~**Align HealthKit permission copy and workout lifecycle with actual behavior.**~~ Removed workout read/write authorization and the inaccurate update-purpose text. The app explains heart-rate reading and discards its background workout session. Physical device behavior still needs validation.
 - [ ] **Run a privacy and permission review.** Verify no sensor payload leaves the watch, inspect app entitlements and HealthKit types, and document behavior when permissions are declined or revoked.
 - [ ] **Create a real-watch validation protocol.** Include quiet desk work, reading/listening, varied arm/wrist positions, walking, fatigue/drowsiness reports, missing pulse, charging, background use, and battery. Where feasible, compare event labels with a stronger reference such as PSG; consumer wearable papers show motion plus pulse can help, but performance depends on validation conditions: [de Zambotti et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC7355403/).
 - [ ] **Set release criteria before calling detection reliable.** Agree on acceptable false alarms per hour, minimum event sensitivity, latency target, battery budget, and required participant diversity based on collected evidence.
@@ -59,4 +59,6 @@ Living, ordered list for making Focus a dependable, discreet drowsiness support 
 
 - The current source tree already contains uncommitted work when this backlog was created. Keep those changes intact; review them before merging backlog items that overlap.
 - Initial research supports a cautious design: wrist immobility alone can classify quiet wake as sleep, and background workout sessions provide runtime but require explicit lifecycle and battery validation.
+- Implemented in this pass: replay evaluator, no global negative-feedback threshold changes, lower-profile active UI, a local data deletion action, and heart-rate permission copy aligned with the discarded workout lifecycle.
+- Still requiring device/data access: replay evaluation on representative labeled data, real-watch lifecycle and battery checks, false-alarm/latency tuning, and validation across people and contexts.
 - Last reviewed: 2026-09-28.

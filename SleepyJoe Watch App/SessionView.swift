@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Active session view – native standalone watch face.
-/// Restored to original ZStack layout with xmark placed neatly under the top status bar (padding top 34).
+/// Quiet, ambient active-session view.
 struct SessionView: View {
     @ObservedObject var sessionManager: SessionManager
     @State private var isPulsing = false
@@ -33,10 +32,7 @@ struct SessionView: View {
             
             // Center: Minimalist Ambient Status Gauge / Tap to Log Microsleep
             Button {
-                guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
-                if sessionManager.logManualSleepOnset() {
-                    triggerFeedbackAnimation(color: .green)
-                }
+                // Manual event logging is intentionally a deliberate long press.
             } label: {
                 VStack(spacing: 10) {
                     ZStack {
@@ -68,15 +64,27 @@ struct SessionView: View {
                     Text(statusText)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(sessionManager.manualLogConfirmed ? .green : (sessionManager.state == .alerting ? .orange : .white.opacity(0.4)))
-                    if sessionManager.state == .monitoring || sessionManager.state == .warning {
-                        Text("Tap for missed drowsiness")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.45))
+                    if sessionManager.hasCheckedHealthKitAuthorization && !sessionManager.isHeartRateAvailable && sessionManager.state != .alerting {
+                        Text("Motion only")
+                            .font(.system(size: 8, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.3))
                     }
                 }
             }
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.8).onEnded { _ in
+                guard sessionManager.state == .monitoring || sessionManager.state == .warning else { return }
+                if sessionManager.logManualSleepOnset() {
+                    triggerFeedbackAnimation(color: .green)
+                }
+            })
             .buttonStyle(.plain)
             .accessibilityLabel("Log missed drowsiness alert")
+            .accessibilityHint("Long press to record a missed event")
+            .accessibilityAction(named: Text("Log missed drowsiness")) {
+                if sessionManager.logManualSleepOnset() {
+                    triggerFeedbackAnimation(color: .green)
+                }
+            }
             
             // Bottom: Live Discreet Feedback Bar (Shown immediately upon alerting AND during feedback window)
             if sessionManager.showFeedbackPrompt || sessionManager.state == .alerting {
@@ -95,7 +103,6 @@ struct SessionView: View {
                                     .foregroundStyle(.white.opacity(0.9))
                                     .frame(width: 38, height: 38)
                                     .background(Color.white.opacity(0.18), in: Circle())
-                                Text("Correct").font(.system(size: 9))
                             }
                         }
                         .buttonStyle(.plain)
@@ -112,7 +119,6 @@ struct SessionView: View {
                                     .foregroundStyle(.white.opacity(0.9))
                                     .frame(width: 38, height: 38)
                                     .background(Color.white.opacity(0.18), in: Circle())
-                                Text("False").font(.system(size: 9))
                             }
                         }
                         .buttonStyle(.plain)
@@ -132,10 +138,10 @@ struct SessionView: View {
     
     private var statusText: String {
         if sessionManager.manualLogConfirmed {
-            return "Logged Sleep ✓"
+            return "Saved"
         }
         if sessionManager.state == .alerting {
-            return "Wake Up!"
+            return "Check in"
         }
         if sessionManager.isGracePeriodActive {
             return "Grace Period"

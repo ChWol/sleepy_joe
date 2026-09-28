@@ -83,25 +83,10 @@ final class AdaptiveLearningEngine: ObservableObject {
             print("🎯 [PatternLearning] TRUE POSITIVE: Weights (Still: \(weightStillness), Pitch: \(weightPitch), HR: \(weightHR))")
         } else {
             falsePositivesCount += 1
-            
-            // False Alarm: Quiet sitting. Adjust granular jitter threshold rather than endlessly adding seconds!
-            if wasStillnessActive {
-                // Small bounded changes leave the primary response time intact.
-                microJitterThresholdOffset = max(-0.018, microJitterThresholdOffset - 0.002)
-                personalStillnessOffset = min(1.0, personalStillnessOffset + 0.1)
-            }
-            
-            if wasHRActive {
-                // Heart rate was noisy -> penalize HR weight so quiet sitting HR fluctuations don't trigger false alarms
-                weightHR = max(0.10, weightHR - 0.08)
-            }
-            if wasPitchActive {
-                weightPitch = max(0.20, weightPitch - 0.04)
-            }
-            
-            confidenceThresholdOffset = min(0.05, confidenceThresholdOffset + 0.01)
-            
-            print("🛡️ [PatternLearning] FALSE POSITIVE: Adjusted Weights (Still: \(weightStillness), JitterOffset: \(microJitterThresholdOffset), HR: \(weightHR))")
+            // A single false alarm must not globally slow detection or change
+            // sensor weights. Similar explicitly labeled windows are handled
+            // by PersonalPatternMatcher after three examples.
+            print("🛡️ [PatternLearning] FALSE POSITIVE recorded; detector thresholds unchanged")
         }
         
         saveCalibration()

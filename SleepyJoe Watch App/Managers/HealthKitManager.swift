@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 
 /// Manages real-time Heart Rate streaming via HKWorkoutSession and HKLiveWorkoutBuilder.
-/// Instantly seeds resting baseline on first sample and tracks relative HR drops without delay.
+/// Builds a relative heart-rate baseline from initial samples and tracks fresh drops.
 @MainActor
 final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     
@@ -49,10 +49,10 @@ final class HealthKitManager: NSObject, ObservableObject, HKWorkoutSessionDelega
         }
         
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
-        let workoutType = HKObjectType.workoutType()
-        
         do {
-            try await healthStore.requestAuthorization(toShare: [workoutType], read: [heartRateType, workoutType])
+            // The live workout session is discarded after monitoring; Focus
+            // neither reads existing workouts nor writes saved workout records.
+            try await healthStore.requestAuthorization(toShare: [], read: [heartRateType])
             isHealthKitAuthorized = true
             return true
         } catch {
