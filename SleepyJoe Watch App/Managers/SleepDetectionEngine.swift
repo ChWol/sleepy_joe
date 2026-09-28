@@ -14,6 +14,9 @@ final class SleepDetectionEngine: ObservableObject {
     @Published var mlConfidence: Double = 0
     @Published var ruleConfidence: Double = 0
     @Published var isWarningCandidate = false
+    private(set) var activeStillnessThreshold: Double = 0
+    private(set) var activeRequiredStillnessSeconds: Double = 0
+    private(set) var activeConfidenceThreshold: Double = 0
 
     var lastExtractedFeatures: [Float] = []
     private var stillnessStartTime: Date?
@@ -39,6 +42,8 @@ final class SleepDetectionEngine: ObservableObject {
         let requiredStillness = max(1, settings.stillnessRequiredSeconds + durationOffset)
         let jitterOffset = settings.useAutoSensitivity ? adaptiveEngine.microJitterThresholdOffset : 0
         let motionThreshold = max(0.008, settings.stillnessThreshold + jitterOffset)
+        activeStillnessThreshold = motionThreshold
+        activeRequiredStillnessSeconds = requiredStillness
 
         // A five-second average hides conscious corrections at the transition.
         let isQuiet = motionManager.forceSimulatedStillness || motionManager.recentMovementScore < motionThreshold
@@ -90,6 +95,7 @@ final class SleepDetectionEngine: ObservableObject {
             (stillness && veryStill && !resemblesKnownAwakePattern && !sustainedStillness)
         let confidenceOffset = settings.useAutoSensitivity ? adaptiveEngine.confidenceThresholdOffset : 0
         let threshold = max(0.35, settings.confidenceThreshold + confidenceOffset)
+        activeConfidenceThreshold = threshold
         totalConfidence = ruleConfidence
         detectionReason = [
             stillness ? "Still \(Int(stillnessDuration))s" : nil,

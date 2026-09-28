@@ -134,6 +134,7 @@ final class SessionManager: ObservableObject {
     /// Labels the sensor window captured before the alarm and wake gesture.
     func submitFeedback(wasTruePositive: Bool) {
         guard showFeedbackPrompt, let snapshot = feedbackSnapshot else { return }
+        recordDecision(wasTruePositive ? "feedback_confirmed" : "feedback_false_alarm")
         feedbackSnapshot = nil
         hapticManager.stopCurrentSequence()
         
@@ -152,6 +153,7 @@ final class SessionManager: ObservableObject {
         
         // If feedback was tapped while actively alerting, return to monitoring cleanly
         if state == .alerting {
+            recordDecision("alarm_cancelled_by_feedback")
             state = .monitoring
             startGracePeriod(seconds: 10)
         }
@@ -237,6 +239,7 @@ final class SessionManager: ObservableObject {
         showFeedbackPrompt = false
         feedbackSnapshot = nil
         isGracePeriodActive = false
+        isMotionAvailable = false
         isHeartRateAvailable = false
         hasCheckedHealthKitAuthorization = false
         sleepDetectionEngine.reset()
@@ -258,9 +261,12 @@ final class SessionManager: ObservableObject {
                 Task { [weak self] in
                     guard let self = self else { return }
                     let authorized = await self.healthKitManager.requestAuthorization()
+                    guard self.state != .idle else { return }
                     self.hasCheckedHealthKitAuthorization = true
                     if authorized, self.state != .idle {
                         self.healthKitManager.startMonitoring()
+                    } else {
+                        self.recordDecision("heart_rate_unavailable")
                     }
                 }
             }
@@ -273,10 +279,13 @@ final class SessionManager: ObservableObject {
         }
         
         state = .monitoring
+        recordDecision("session_started")
         WKInterfaceDevice.current().play(.start)
     }
     
     func stopSession() {
+        guard state != .idle else { return }
+        recordDecision("session_stopped")
         state = .idle
         
         elapsedTimer?.invalidate()
@@ -336,8 +345,13 @@ final class SessionManager: ObservableObject {
                 let motionAvailable = self.motionManager.isTracking && sampleIsFresh
                 if self.isMotionAvailable != motionAvailable {
                     self.isMotionAvailable = motionAvailable
+                    self.recordDecision(motionAvailable ? "motion_restored" : "motion_gap")
                 }
-                self.isHeartRateAvailable = self.healthKitManager.hasFreshHeartRate
+                let heartRateAvailable = self.healthKitManager.hasFreshHeartRate
+                if self.isHeartRateAvailable != heartRateAvailable {
+                    self.isHeartRateAvailable = heartRateAvailable
+                    self.recordDecision(heartRateAvailable ? "heart_rate_available" : "heart_rate_gap")
+                }
                 
                 if self.isGracePeriodActive {
                     continue
@@ -368,10 +382,12 @@ final class SessionManager: ObservableObject {
                     self.triggerAlert()
                 } else if self.sleepDetectionEngine.isWarningCandidate {
                     if self.state == .monitoring {
+                        self.recordDecision("sleep_candidate")
                         self.state = .warning
                     }
                 } else {
                     if self.state == .warning {
+                        self.recordDecision("candidate_cleared")
                         self.state = .monitoring
                     }
                 }
@@ -382,6 +398,7 @@ final class SessionManager: ObservableObject {
     private func triggerAlert() {
         guard state != .alerting else { return }
         feedbackSnapshot = captureSnapshot()
+        recordDecision("alarm_fired")
         
         state = .alerting
         alertCount += 1
@@ -396,6 +413,7 @@ final class SessionManager: ObservableObject {
 
     private func finishAlertAfterWakeGesture() {
         guard state == .alerting else { return }
+        recordDecision("alarm_cancelled_by_wake_gesture")
         hapticManager.stopCurrentSequence()
         state = .monitoring
         startGracePeriod(seconds: 10)
@@ -415,6 +433,7 @@ final class SessionManager: ObservableObject {
     }
     
     private func startGracePeriod(seconds: Double) {
+        recordDecision("grace_period_started")
         isGracePeriodActive = true
         sleepDetectionEngine.reset()
         gracePeriodTask?.cancel()
@@ -422,8 +441,28 @@ final class SessionManager: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
             if !Task.isCancelled {
                 self.isGracePeriodActive = false
+                self.recordDecision("grace_period_ended")
             }
         }
+    }
+
+    private func recordDecision(_ event: String) {
+        let now = Date()
+        let sampleAge = motionManager.lastSampleDate.map { max(0, now.timeIntervalSince($0)) }
+        telemetryLogger.recordDecision(DetectionDecisionTrace(
+            timestamp: now,
+            event: event,
+            reason: sleepDetectionEngine.detectionReason,
+            confidence: sleepDetectionEngine.totalConfidence,
+            confidenceThreshold: sleepDetectionEngine.activeConfidenceThreshold,
+            stillnessThreshold: sleepDetectionEngine.activeStillnessThreshold,
+            requiredStillnessSeconds: sleepDetectionEngine.activeRequiredStillnessSeconds,
+            stillnessDuration: motionManager.stillDuration,
+            movementScore: motionManager.recentMovementScore,
+            pitchCue: sleepDetectionEngine.wasPitchActive,
+            heartRateCue: sleepDetectionEngine.wasHRActive,
+            motionSampleAge: sampleAge
+        ))
     }
     
     // MARK: - Random Ping Loop

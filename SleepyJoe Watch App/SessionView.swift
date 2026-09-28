@@ -144,7 +144,7 @@ struct SessionView: View {
             return "Check in"
         }
         if sessionManager.isGracePeriodActive {
-            return "Grace Period"
+            return "Focus Active"
         }
         if sessionManager.settings.enableMotionDetection && !sessionManager.isMotionAvailable {
             return "Motion unavailable"

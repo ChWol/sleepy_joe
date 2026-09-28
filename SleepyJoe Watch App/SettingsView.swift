@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var enablePings: Bool
     @State private var showResetConfirmation = false
     @State private var showDeleteDataConfirmation = false
+    @State private var saveDiagnostics: Bool
     
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
@@ -25,6 +26,7 @@ struct SettingsView: View {
         _pingInterval = State(initialValue: s.pingIntervalMinutes)
         _hapticStrength = State(initialValue: s.hapticStrength)
         _enablePings = State(initialValue: s.enableRandomPings)
+        _saveDiagnostics = State(initialValue: sessionManager.telemetryLogger.diagnosticsEnabled)
     }
     
     var body: some View {
@@ -56,7 +58,7 @@ struct SettingsView: View {
                 
                 // 3. Sensitivity (Auto vs Manual)
                 Section("Sensitivity") {
-                    Toggle("Auto (Learned)", isOn: $useAutoSensitivity)
+                    Toggle("Adapt to feedback", isOn: $useAutoSensitivity)
                     
                     if !useAutoSensitivity {
                         VStack(alignment: .leading, spacing: 4) {
@@ -74,6 +76,9 @@ struct SettingsView: View {
                 // 4. Learned Profile (Only visible if Auto-Sensitivity is active)
                 if useAutoSensitivity {
                     Section("Learned Profile") {
+                        Text("Explicit feedback adjusts personal patterns. These heuristics are not a sleep diagnosis.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         HStack {
                             Text("Confirmed alerts")
                             Spacer()
@@ -95,7 +100,11 @@ struct SettingsView: View {
                 }
 
                 Section("Your Data") {
-                    Text("Sensor windows are saved on this watch only when you submit alert feedback. They help recognize similar personal patterns.")
+                    Text("Sensor windows are saved on this watch when you submit alert feedback or log a missed event. They help recognize similar personal patterns and are capped at 1,000 windows.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Toggle("Save decision diagnostics", isOn: $saveDiagnostics)
+                    Text("When enabled, Focus keeps timestamps, reasons, and thresholds on this watch. It does not include raw motion samples.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     HStack {
@@ -104,10 +113,16 @@ struct SettingsView: View {
                         Text("\(sessionManager.telemetryLogger.totalSavedSamples)")
                             .foregroundStyle(.secondary)
                     }
+                    HStack {
+                        Text("Diagnostic events")
+                        Spacer()
+                        Text("\(sessionManager.telemetryLogger.totalDecisionTraceEntries)")
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Delete saved sensor data", role: .destructive) {
                         showDeleteDataConfirmation = true
                     }
-                    .disabled(sessionManager.telemetryLogger.totalSavedSamples == 0 && sessionManager.mlReplayBuffer.entries.isEmpty)
+                    .disabled(sessionManager.telemetryLogger.totalSavedSamples == 0 && sessionManager.mlReplayBuffer.entries.isEmpty && sessionManager.telemetryLogger.totalDecisionTraceEntries == 0)
                 }
             }
             .navigationTitle("Settings")
@@ -144,7 +159,7 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Saved alert windows and personal example patterns will be removed. Your sensitivity settings and feedback counts will remain.")
+                Text("Saved alert windows, personal example patterns, and diagnostic events will be removed. Your sensitivity settings and feedback counts will remain.")
             }
             .onChange(of: useAutoSensitivity) { _, _ in applySettings() }
             .onChange(of: sensitivity) { _, _ in applySettings() }
@@ -154,6 +169,9 @@ struct SettingsView: View {
                 sessionManager.hapticManager.playSample(for: newStrength)
             }
             .onChange(of: enablePings) { _, _ in applySettings() }
+            .onChange(of: saveDiagnostics) { _, enabled in
+                sessionManager.telemetryLogger.setDiagnosticsEnabled(enabled)
+            }
         }
     }
     

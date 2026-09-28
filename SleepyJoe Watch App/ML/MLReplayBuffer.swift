@@ -25,6 +25,7 @@ class MLReplayBuffer: ObservableObject {
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         self.fileURL = documentsDirectory.appendingPathComponent("ml_replay_buffer.json")
         loadFromDisk()
+        excludeReplayBufferFromBackup()
     }
     
     /// Adds a new feature sample to the replay buffer, managing capacity and persistence.
@@ -110,6 +111,7 @@ class MLReplayBuffer: ObservableObject {
             let encoder = JSONEncoder()
             let data = try encoder.encode(entries)
             try data.write(to: fileURL, options: .atomic)
+            excludeReplayBufferFromBackup()
         } catch {
             print("Failed to save replay buffer: \(error.localizedDescription)")
         }
@@ -118,5 +120,12 @@ class MLReplayBuffer: ObservableObject {
     private func updateCounts() {
         sleepCount = entries.filter { $0.label == "sleep" }.count
         awakeCount = entries.filter { $0.label == "awake" }.count
+    }
+
+    private func excludeReplayBufferFromBackup() {
+        var localOnlyFile = fileURL
+        var fileValues = URLResourceValues()
+        fileValues.isExcludedFromBackup = true
+        try? localOnlyFile.setResourceValues(fileValues)
     }
 }

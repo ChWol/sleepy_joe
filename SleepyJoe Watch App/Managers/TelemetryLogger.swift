@@ -42,20 +42,75 @@ struct TelemetrySample: Codable, Identifiable {
     }
 }
 
+/// Low-volume, raw-signal-free diagnostic event. Saved only when the user opts in.
+struct DetectionDecisionTrace: Codable {
+    let timestamp: Date
+    let event: String
+    let reason: String
+    let confidence: Double
+    let confidenceThreshold: Double
+    let stillnessThreshold: Double
+    let requiredStillnessSeconds: Double
+    let stillnessDuration: TimeInterval
+    let movementScore: Double
+    let pitchCue: Bool
+    let heartRateCue: Bool
+    let motionSampleAge: TimeInterval?
+}
+
 /// On-Device Telemetry Logger for collecting clean 5-second labeled dataset samples.
 @MainActor
 final class TelemetryLogger: ObservableObject {
     
     @Published var totalSavedSamples: Int = 0
+    @Published private(set) var totalDecisionTraceEntries: Int = 0
+    @Published private(set) var diagnosticsEnabled: Bool
     
     private let telemetryFolder: URL
+    private let diagnosticsURL: URL
+    private static let diagnosticsPreferenceKey = "focus_save_decision_diagnostics"
+    private let maximumLabeledWindows = 1_000
     
     init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        self.telemetryFolder = docs.appendingPathComponent("telemetry", isDirectory: true)
+        let telemetryFolder = docs.appendingPathComponent("telemetry", isDirectory: true)
+        self.telemetryFolder = telemetryFolder
+        self.diagnosticsURL = telemetryFolder.appendingPathComponent("decision_traces.jsonl")
+        self.diagnosticsEnabled = UserDefaults.standard.bool(forKey: Self.diagnosticsPreferenceKey)
         
         try? FileManager.default.createDirectory(at: telemetryFolder, withIntermediateDirectories: true)
+        var localOnlyFolder = telemetryFolder
+        var folderValues = URLResourceValues()
+        folderValues.isExcludedFromBackup = true
+        try? localOnlyFolder.setResourceValues(folderValues)
         updateSampleCount()
+        updateDecisionTraceCount()
+    }
+
+    func setDiagnosticsEnabled(_ enabled: Bool) {
+        diagnosticsEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.diagnosticsPreferenceKey)
+    }
+
+    func recordDecision(_ trace: DetectionDecisionTrace) {
+        guard diagnosticsEnabled,
+              let encoded = try? JSONEncoder().encode(trace) else { return }
+        var line = encoded
+        line.append(0x0A)
+        do {
+            if FileManager.default.fileExists(atPath: diagnosticsURL.path) {
+                let handle = try FileHandle(forWritingTo: diagnosticsURL)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: line)
+                try handle.close()
+            } else {
+                try line.write(to: diagnosticsURL, options: .atomic)
+            }
+            totalDecisionTraceEntries += 1
+            if totalDecisionTraceEntries > 5_000 { trimDecisionTraceFile() }
+        } catch {
+            print("[TelemetryLogger] Could not save decision trace: \(error)")
+        }
     }
     
     /// Save an alert-time window when the user explicitly labels the event.
@@ -93,6 +148,7 @@ final class TelemetryLogger: ObservableObject {
             do {
                 try data.write(to: fileURL, options: .atomic)
                 totalSavedSamples += 1
+                trimLabeledWindowsIfNeeded()
             } catch {
                 print("[TelemetryLogger] Could not save sample: \(error)")
             }
@@ -107,6 +163,7 @@ final class TelemetryLogger: ObservableObject {
             }
         }
         updateSampleCount()
+        totalDecisionTraceEntries = 0
     }
     
     private func updateSampleCount() {
@@ -114,6 +171,48 @@ final class TelemetryLogger: ObservableObject {
             totalSavedSamples = files.filter { $0.pathExtension == "json" }.count
         } else {
             totalSavedSamples = 0
+        }
+    }
+
+    private func trimLabeledWindowsIfNeeded() {
+        guard totalSavedSamples > maximumLabeledWindows,
+              let files = try? FileManager.default.contentsOfDirectory(
+                at: telemetryFolder,
+                includingPropertiesForKeys: [.creationDateKey]
+              ) else { return }
+        let samples = files.filter { $0.pathExtension == "json" }
+        let oldestFirst = samples.sorted { left, right in
+            let leftDate = (try? left.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            let rightDate = (try? right.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            return leftDate < rightDate
+        }
+        for file in oldestFirst.prefix(max(0, oldestFirst.count - maximumLabeledWindows)) {
+            try? FileManager.default.removeItem(at: file)
+        }
+        updateSampleCount()
+    }
+
+    private func updateDecisionTraceCount() {
+        guard let data = try? Data(contentsOf: diagnosticsURL) else {
+            totalDecisionTraceEntries = 0
+            return
+        }
+        totalDecisionTraceEntries = data.split(separator: 0x0A).count
+    }
+
+    private func trimDecisionTraceFile() {
+        guard let data = try? Data(contentsOf: diagnosticsURL) else { return }
+        let lines = data.split(separator: 0x0A).suffix(5_000)
+        var trimmed = Data()
+        for line in lines {
+            trimmed.append(contentsOf: line)
+            trimmed.append(0x0A)
+        }
+        do {
+            try trimmed.write(to: diagnosticsURL, options: .atomic)
+            totalDecisionTraceEntries = lines.count
+        } catch {
+            print("[TelemetryLogger] Could not trim decision trace: \(error)")
         }
     }
 }
